@@ -18,7 +18,7 @@ struct RegexTesterView: View {
                         .font(.system(.body, design: .monospaced)).textFieldStyle(.plain).padding(10)
                         .background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 8))
                         .overlay(RoundedRectangle(cornerRadius: 8).stroke(errorMsg != nil ? Color.red.opacity(0.5) : Color.appSeparator.opacity(0.3), lineWidth: 0.5))
-                        .onChange(of: pattern) { _ = parse() }
+                        .onChange(of: pattern) { _, _ in parse() }
                 }.padding(.horizontal, 16)
 
                 // 选项
@@ -27,7 +27,7 @@ struct RegexTesterView: View {
                     Toggle("多行模式", isOn: $multiline).font(.caption).foregroundColor(.appSecondary).toggleStyle(.button).tint(.appForeground)
                     Spacer()
                     Text("\(matches.count) 个匹配").font(.caption).foregroundColor(.appSecondary)
-                }.padding(.horizontal, 16).onChange(of: caseInsensitive) { _ = parse() }.onChange(of: multiline) { _ = parse() }
+                }.padding(.horizontal, 16).onChange(of: caseInsensitive) { _, _ in parse() }.onChange(of: multiline) { _, _ in parse() }
 
                 // 测试文本
                 VStack(alignment: .leading, spacing: 4) {
@@ -37,7 +37,7 @@ struct RegexTesterView: View {
                         .scrollContentBackground(.hidden).background(Color.appCard)
                         .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.appSeparator.opacity(0.3), lineWidth: 0.5))
                         .clipShape(RoundedRectangle(cornerRadius: 8))
-                        .onChange(of: testText) { _ = parse() }
+                        .onChange(of: testText) { _, _ in parse() }
                 }.padding(.horizontal, 16)
 
                 // 错误
