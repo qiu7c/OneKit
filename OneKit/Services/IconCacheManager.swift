@@ -31,7 +31,8 @@ actor IconCacheManager {
         }
 
         // 2. 检查磁盘缓存
-        if let diskData = try? Data(contentsOf: diskCacheURL(for: url)),
+        if let cacheURL = diskCacheURL(for: url),
+           let diskData = try? Data(contentsOf: cacheURL),
            let image = UIImage(data: diskData) {
             // 写回内存缓存
             memoryCache.setObject(diskData as NSData, forKey: url as NSURL)
