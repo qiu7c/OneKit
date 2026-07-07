@@ -11,22 +11,14 @@ struct ColorPaletteView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
-                colorPickerSection
-                colorInfoSection
-                hexInputSection
-                actionButtonsSection
-                imageColorPickerSection
-                sliderSection
-                presetSection
+                colorPickerSection; colorInfoSection; hexInputSection; actionButtonsSection
+                imageColorPickerSection; sliderSection; presetSection
                 ColorHarmoniesView(color: viewModel.selectedColor, selectedType: $viewModel.selectedHarmony)
                 SavedColorsView(viewModel: viewModel)
-            }
-            .padding(20)
+            }.padding(20)
         }
         .background(Color.appBackground)
-        .navigationTitle("调色板")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .tabBar)
+        .navigationTitle("调色板").navigationBarTitleDisplayMode(.inline).toolbar(.hidden, for: .tabBar)
         .sheet(isPresented: $showColorPicker) {
             ImageColorPickerView(image: pickedImage ?? UIImage()) { color in
                 var r: CGFloat = 0; var g: CGFloat = 0; var b: CGFloat = 0; var a: CGFloat = 0
@@ -34,17 +26,13 @@ struct ColorPaletteView: View {
                 viewModel.customRed = Double(r); viewModel.customGreen = Double(g); viewModel.customBlue = Double(b)
                 viewModel.updateFromSliders()
             }
+            .id("picker-\(showColorPicker)") // 强制重建
         }
-
-        // 用 background 层的 sheet 处理选照片，避免 sheet 嵌套
         .background(
             EmptyView().sheet(isPresented: $showPicker) {
                 PhotoPickerView { img in
-                    pickedImage = img
-                    showPicker = false
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        showColorPicker = true
-                    }
+                    pickedImage = img; showPicker = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { showColorPicker = true }
                 }
             }
         )
@@ -82,14 +70,12 @@ struct ColorPaletteView: View {
             infoChip("HSL", viewModel.selectedColor.hslString)
         }
     }
-
     private func infoChip(_ t: String, _ v: String) -> some View {
         VStack(spacing: 4) {
             Text(t).font(.system(size: 9)).fontWeight(.semibold).foregroundColor(.appTertiary)
             Text(v).font(.system(size: 11, design: .monospaced)).foregroundColor(.appForeground).lineLimit(1).minimumScaleFactor(0.7)
         }.frame(maxWidth: .infinity).padding(10).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 10))
     }
-
     private var hexInputSection: some View {
         HStack(spacing: 10) {
             TextField("输入 Hex 颜色", text: $viewModel.hexInput).font(.system(.body, design: .monospaced)).textFieldStyle(.plain).padding(12).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 10))
@@ -98,7 +84,6 @@ struct ColorPaletteView: View {
             }
         }
     }
-
     private var actionButtonsSection: some View {
         HStack(spacing: 10) {
             Button { viewModel.copyHex(viewModel.selectedColor); showCopied = true; DispatchQueue.main.asyncAfter(deadline: .now()+1.5) { showCopied = false } } label: {
@@ -112,7 +97,6 @@ struct ColorPaletteView: View {
             }
         }
     }
-
     private var sliderSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("RGB 调色").font(.headline).fontWeight(.semibold).foregroundColor(.appForeground)
@@ -128,7 +112,6 @@ struct ColorPaletteView: View {
             .onChange(of: viewModel.customOpacity) { _ in viewModel.updateFromSliders() }
         }.padding(16).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 16))
     }
-
     private func sliderRow(_ l: String, _ c: Color, _ v: Binding<Double>) -> some View {
         HStack {
             Text(l).font(.caption).foregroundColor(.appSecondary).frame(width: 40, alignment: .leading)
@@ -136,7 +119,6 @@ struct ColorPaletteView: View {
             Text("\(Int(v.wrappedValue * 255))").font(.system(size: 11, design: .monospaced)).foregroundColor(.appSecondary).frame(width: 36, alignment: .trailing)
         }
     }
-
     private var presetSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("预设颜色").font(.headline).fontWeight(.semibold).foregroundColor(.appForeground)
@@ -152,17 +134,14 @@ struct ColorPaletteView: View {
     }
 }
 
-// MARK: - UIKit 照片选择器
 struct PhotoPickerView: UIViewControllerRepresentable {
     let onPick: (UIImage) -> Void
-
     func makeUIViewController(context: Context) -> PHPickerViewController {
         var c = PHPickerConfiguration(); c.filter = .images; c.selectionLimit = 1
         let p = PHPickerViewController(configuration: c); p.delegate = context.coordinator; return p
     }
     func updateUIViewController(_: PHPickerViewController, context: Context) {}
     func makeCoordinator() -> Coordinator { Coordinator(onPick: onPick) }
-
     class Coordinator: NSObject, PHPickerViewControllerDelegate {
         let onPick: (UIImage) -> Void
         init(onPick: @escaping (UIImage) -> Void) { self.onPick = onPick }

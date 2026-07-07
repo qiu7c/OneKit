@@ -14,11 +14,11 @@ struct IconDownloaderView: View {
                 ProgressView().scaleEffect(1.2).frame(maxWidth: .infinity, maxHeight: .infinity).background(Color.appBackground.opacity(0.8))
             }
 
-            // 自定义错误弹窗 (不用 .alert，避免冷启动空白)
             if viewModel.showError {
                 Rectangle().fill(Color.black.opacity(0.3)).ignoresSafeArea()
+                    .id("errbg-\(viewModel.showError)")
                 VStack(spacing: 16) {
-                    Text("提示").font(.headline).fontWeight(.bold).foregroundColor(.appForeground)
+                    Text("提示").font(.headline).fontWeight(.bold)
                     Text(viewModel.errorMessage?.isEmpty == false ? viewModel.errorMessage! : "请求失败，请检查网络连接")
                         .font(.body).foregroundColor(.appSecondary).multilineTextAlignment(.center)
                     Button { viewModel.showError = false } label: {
@@ -28,14 +28,12 @@ struct IconDownloaderView: View {
                     }
                 }
                 .padding(24).background(Color.appBackground).clipShape(RoundedRectangle(cornerRadius: 16))
-                .shadow(color: .black.opacity(0.15), radius: 20)
-                .padding(40)
+                .shadow(color: .black.opacity(0.15), radius: 20).padding(40)
+                .id("err-\(viewModel.showError)")
             }
         }
         .background(Color.appBackground)
-        .navigationTitle("图标下载")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .tabBar)
+        .navigationTitle("图标下载").navigationBarTitleDisplayMode(.inline).toolbar(.hidden, for: .tabBar)
         .searchable(text: $viewModel.searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索 App 名称...")
         .onSubmit(of: .search) { Task { await viewModel.search() } }
         .onChange(of: viewModel.searchText) { v in if v.isEmpty { viewModel.clearResults() } }
