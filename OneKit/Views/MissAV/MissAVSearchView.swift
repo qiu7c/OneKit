@@ -59,7 +59,7 @@ struct MissAVSearchView: View {
                         ForEach(vm.videos) { video in
                             VideoCardView(video: video)
                                 .onTapGesture {
-                                    Task { await playVideo(video) }
+                                    playVideo(video)
                                 }
                                 .opacity(isSelected(video) ? 0.6 : 1)
                         }
@@ -203,23 +203,21 @@ struct MissAVSearchView: View {
         }
     }
 
-    private func playVideo(_ video: MissAVMedia) async {
+    private func playVideo(_ video: MissAVMedia) {
         if let existing = video.m3u8URL {
             playerURL = existing
             showPlayer = true
             return
         }
-        do {
-            let m3u8 = try await vm.extractM3U8(for: video)
-            await MainActor.run {
+        Task { @MainActor in
+            do {
+                let m3u8 = try await vm.extractM3U8(for: video)
                 if let idx = vm.videos.firstIndex(where: { $0.id == video.id }) {
                     vm.videos[idx].m3u8URL = m3u8
                 }
                 playerURL = m3u8
                 showPlayer = true
-            }
-        } catch {
-            await MainActor.run {
+            } catch {
                 vm.state = .error("获取播放地址失败: \(error.localizedDescription)")
             }
         }
