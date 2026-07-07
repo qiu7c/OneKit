@@ -14,10 +14,14 @@ env:
 
 jobs:
   # ============================================================
-  # Job 1: 构建 iOS 真机 IPA (未签名，可用 TrollStore / 自行签名安装)
+  # Job 1: 构建 iOS 真机 IPA + Release 发布
   # ============================================================
   build-ipa:
     runs-on: macos-14
+    permissions:
+      contents: write
+      actions: read
+
     steps:
       - name: 📥 Checkout
         uses: actions/checkout@v4
@@ -36,7 +40,7 @@ jobs:
       - name: 📦 Generate Xcode Project
         run: xcodegen generate
 
-      - name: 🏗 Build for iOS (arm64, unsigned)
+      - name: 🏗 Build for iOS (arm64)
         run: |
           xcodebuild build \
             -project ${{ env.PROJECT_NAME }}.xcodeproj \
@@ -50,12 +54,11 @@ jobs:
 
       - name: 📦 Package IPA
         run: |
-          # 查找编译产物
           APP_PATH=$(find build -name "*.app" -type d | head -1)
           echo "Found .app at: $APP_PATH"
 
           if [ -z "$APP_PATH" ]; then
-            echo "❌ .app not found, trying build/Release-iphoneos/"
+            echo "❌ .app not found, trying Release-iphoneos/"
             APP_PATH="build/Release-iphoneos/${{ env.PROJECT_NAME }}.app"
           fi
 
@@ -66,17 +69,52 @@ jobs:
             rm -rf Payload
             echo "✅ IPA created: $(ls -lh ${{ env.PROJECT_NAME }}.ipa)"
           else
-            echo "❌ .app not found at $APP_PATH"
+            echo "❌ .app not found"
             find build -name "*.app" -type d 2>/dev/null
             exit 1
           fi
 
-      - name: 📄 Upload IPA
+      - name: 📄 Upload IPA to Actions Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.PROJECT_NAME }}.ipa
           path: ${{ env.PROJECT_NAME }}.ipa
           retention-days: 90
+
+      # ============================================================
+      # 发布到 GitHub Releases (仅 main 分支)
+      # ============================================================
+      - name: 🏷 Get version
+        id: version
+        run: |
+          echo "tag=v1.0.0-$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+          echo "name=OneKit v1.0.0 ($(date +'%Y-%m-%d'))" >> $GITHUB_OUTPUT
+
+      - name: 🚀 Create GitHub Release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.name }}
+          body: |
+            ## OneKit v1.0.0
+
+            ### 功能
+            - 🔤 SF Symbols 浏览器 — 搜索/分类/预览
+            - 📲 AppStore 图标下载 — 搜索 App 图标，多尺寸下载
+            - 🎨 调色板工具 — 预设色/自定义/色彩和谐
+            - 🌗 主题切换 — 纯黑/纯白/跟随系统
+
+            ### 安装说明
+            此 IPA 未签名，请使用以下方式安装：
+            1. **TrollStore** — 直接安装 (推荐，无需电脑)
+            2. **AltStore / Sideloadly** — 使用 Apple ID 签名后安装
+            3. **Xcode** — 连接设备直接运行 (Development)
+          files: ${{ env.PROJECT_NAME }}.ipa
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ============================================================
   # Job 2: Simulator 编译验证
