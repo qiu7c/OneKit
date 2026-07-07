@@ -7,6 +7,7 @@ struct SymbolDetailView: View {
     @State private var scale: CGFloat = 1.0
     @State private var rotation: Angle = .zero
     @State private var showCopied = false
+    @State private var showSaved = false
 
     var body: some View {
         NavigationStack {
@@ -74,35 +75,13 @@ struct SymbolDetailView: View {
                         .modernButtonStyle()
                     }
 
-                    // 复制中文名
-                    Button {
-                        UIPasteboard.general.string = symbol.name
-                        showCopied = true
-                        Haptic.success()
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                            showCopied = false
-                        }
-                    } label: {
-                        HStack {
-                            Image(systemName: showCopied ? "checkmark" : "doc.text")
-                            Text(showCopied ? "已复制!" : "复制中文名称")
-                        }
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.appForeground)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 50)
-                        .background(Color.appCard)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    }
-
-                    // 下载图标
+                    // 保存图标到相册
                     Button {
                         saveSymbolAsImage()
                     } label: {
                         HStack {
-                            Image(systemName: "square.and.arrow.down")
-                            Text("保存图标到相册")
+                            Image(systemName: showSaved ? "checkmark" : "square.and.arrow.down")
+                            Text(showSaved ? "已保存!" : "保存图标到相册")
                         }
                         .font(.headline)
                         .fontWeight(.semibold)
@@ -130,17 +109,29 @@ struct SymbolDetailView: View {
     // MARK: - 保存 SF Symbol 为图片
     private func saveSymbolAsImage() {
         let config = UIImage.SymbolConfiguration(pointSize: 200, weight: .regular)
-        guard let symbolImage = UIImage(systemName: symbol.id, withConfiguration: config) else {
+        guard UIImage(systemName: symbol.id, withConfiguration: config) != nil else {
             Haptic.error()
             return
         }
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 240, height: 240))
-        let finalImage = renderer.image { ctx in
-            UIColor.clear.setFill()
-            ctx.fill(CGRect(x: 0, y: 0, width: 240, height: 240))
-            symbolImage.draw(in: CGRect(x: 20, y: 20, width: 200, height: 200))
+
+        // 用 SwiftUI ImageRenderer 渲染 (iOS 16+)
+        let imageView = Text(symbol.id)
+            .font(.system(size: 180))
+            .foregroundColor(.primary)
+            .frame(width: 240, height: 240)
+
+        let renderer = ImageRenderer(content: imageView)
+        renderer.scale = 3.0
+
+        if let finalImage = renderer.uiImage {
+            UIImageWriteToSavedPhotosAlbum(finalImage, nil, nil, nil)
+            showSaved = true
+            Haptic.success()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                showSaved = false
+            }
+        } else {
+            Haptic.error()
         }
-        UIImageWriteToSavedPhotosAlbum(finalImage, nil, nil, nil)
-        Haptic.success()
     }
 }

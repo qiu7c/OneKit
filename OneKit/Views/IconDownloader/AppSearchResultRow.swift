@@ -90,9 +90,9 @@ struct AppSearchResultRow: View {
         .background(Color.appCard)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .padding(.horizontal, 16)
-        .onAppear {
-            loadIcon()
-        }
+        .onAppear { loadIcon() }
+        .onTapGesture { onTap() }
+        .contentShape(Rectangle())
     }
 
     // MARK: - 加载图标

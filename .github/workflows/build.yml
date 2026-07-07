@@ -38,7 +38,7 @@ jobs:
           file Payload/OneKit.app/OneKit
           chmod +x Payload/OneKit.app/OneKit
 
-          # Info.plist (替换变量)
+          # Info.plist
           cp OneKit/Info.plist Payload/OneKit.app/
           plutil -replace CFBundleExecutable -string "OneKit" Payload/OneKit.app/Info.plist
           plutil -replace CFBundleIdentifier -string "com.cc.OneKit" Payload/OneKit.app/Info.plist
@@ -47,35 +47,27 @@ jobs:
           plutil -replace CFBundleVersion -string "1" Payload/OneKit.app/Info.plist
           plutil -replace MinimumOSVersion -string "16.0" Payload/OneKit.app/Info.plist
 
-          # 编译 Assets.car (图标+资源)
+          # 编译 Assets.car + 生成图标 plist
+          echo "=== Compiling Assets.xcassets ==="
+          ls -la OneKit/Resources/Assets.xcassets/AppIcon.appiconset/
           xcrun actool OneKit/Resources/Assets.xcassets \
             --compile Payload/OneKit.app/ \
             --platform iphoneos \
             --minimum-deployment-target 16.0 \
-            --app-icon AppIcon 2>&1 || echo "⚠️ actool had warnings"
+            --app-icon AppIcon \
+            --output-partial-info-plist /tmp/icons_plist.plist 2>&1
 
-          # 手动添加图标信息到 Info.plist (actool 可能没自动添加)
-          cat > /tmp/icon_plist.json << 'ENDPLIST'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>CFBundleIcons</key>
-            <dict>
-              <key>CFBundlePrimaryIcon</key>
-              <dict>
-                <key>CFBundleIconFiles</key>
-                <array>
-                  <string>AppIcon60x60</string>
-                </array>
-                <key>UIPrerenderedIcon</key>
-                <false/>
-              </dict>
-            </dict>
-          </dict>
-          </plist>
-          ENDPLIST
-          plutil -merge /tmp/icon_plist.json Payload/OneKit.app/Info.plist 2>/dev/null || true
+          echo "=== actool output plist ==="
+          [ -f /tmp/icons_plist.plist ] && plutil -p /tmp/icons_plist.plist || echo "No partial plist"
+
+          # 合并图标信息到 Info.plist
+          if [ -f /tmp/icons_plist.plist ]; then
+            plutil -merge /tmp/icons_plist.plist Payload/OneKit.app/Info.plist
+            echo "✅ Icon plist merged"
+          fi
+
+          echo "=== Final Info.plist icon keys ==="
+          plutil -p Payload/OneKit.app/Info.plist | grep -A5 "CFBundleIcons" || echo "No CFBundleIcons"
 
       - name: ✍️ ldid Sign
         run: |
