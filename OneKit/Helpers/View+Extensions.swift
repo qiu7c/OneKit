@@ -24,6 +24,16 @@ extension View {
     }
 }
 
+import Combine
+
+// MARK: - onChange iOS 16/17 兼容
+extension View {
+    /// 兼容 iOS 16 和 17 的 onChange（使用 onReceive 避免签名冲突）
+    func onChangeCompat<T: Equatable>(of value: T, perform action: @escaping () -> Void) -> some View {
+        self.onReceive(Just(value).dropFirst()) { _ in action() }
+    }
+}
+
 struct ScaleButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label.scaleEffect(configuration.isPressed ? 0.97 : 1)
