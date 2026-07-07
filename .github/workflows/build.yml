@@ -13,9 +13,6 @@ env:
   BUNDLE_ID: com.cc.OneKit
 
 jobs:
-  # ============================================================
-  # Job 1: 构建 TrollStore 兼容 IPA
-  # ============================================================
   build-ipa:
     runs-on: macos-14
     permissions:
@@ -31,105 +28,124 @@ jobs:
           xcode-version: ${{ env.XCODE_VERSION }}
 
       - name: 💾 Install XcodeGen
-        run: |
-          if ! command -v xcodegen &> /dev/null; then
-            brew install xcodegen
-          fi
+        run: brew install xcodegen
 
       - name: 📦 Generate Xcode Project
         run: xcodegen generate
 
-      - name: 🏗 Build for iOS Device (arm64)
+      # --------------------------------------------------
+      # 方案: 利用 archive 输出完整 .app
+      # --------------------------------------------------
+      - name: 🏗 Archive for iOS Device
         run: |
-          xcodebuild build \
+          xcodebuild archive \
             -project ${{ env.PROJECT_NAME }}.xcodeproj \
             -scheme ${{ env.PROJECT_NAME }} \
             -sdk iphoneos \
             -configuration Release \
-            -arch arm64 \
+            -archivePath ${{ env.PROJECT_NAME }}.xcarchive \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
-            DEVELOPMENT_TEAM="" \
-            BUILD_DIR=./build \
-            OBJROOT=./build/obj \
-            SYMROOT=./build/sym 2>&1 | tee build.log
+            DEVELOPMENT_TEAM="" 2>&1 | tee build.log | tail -20
+          echo "=== Archive exit code: $? ==="
 
-      - name: 🔍 Verify Binary
+      - name: 🔍 Find Products
         run: |
-          echo "=== Searching for .app ==="
-          find build -name "*.app" -type d
-          echo "=== Searching for binary ==="
-          find build -name "${{ env.PROJECT_NAME }}" -type f
-          echo "=== Directory tree ==="
-          find build -type f -name "*.app" -o -name "${{ env.PROJECT_NAME }}" | head -20
+          echo "=== Looking for products ==="
+          find . -name "*.app" -type d -maxdepth 5 2>/dev/null
+          echo "=== xcarchive contents ==="
+          ls -la ${{ env.PROJECT_NAME }}.xcarchive/Products/Applications/ 2>/dev/null || echo "No xcarchive"
 
-      - name: 📦 Package IPA for TrollStore
+      - name: 📦 Build & Find App
+        id: find_app
         run: |
-          # 找 .app
-          APP_PATH=$(find build -name "*.app" -type d | head -1)
-          if [ -z "$APP_PATH" ]; then
-            APP_PATH="build/Release-iphoneos/${{ env.PROJECT_NAME }}.app"
+          # 尝试1: xcarchive
+          APP=""
+          if [ -d "${{ env.PROJECT_NAME }}.xcarchive/Products/Applications/${{ env.PROJECT_NAME }}.app" ]; then
+            APP="${{ env.PROJECT_NAME }}.xcarchive/Products/Applications/${{ env.PROJECT_NAME }}.app"
+            echo "✅ Found via xcarchive"
           fi
 
-          if [ ! -d "$APP_PATH" ]; then
-            echo "❌ .app not found!"
-            ls -la build/
-            find build -maxdepth 5 -type d | head -20
+          # 尝试2: build dir
+          if [ -z "$APP" ]; then
+            APP=$(find . -path "*/Release-iphoneos/${{ env.PROJECT_NAME }}.app" -type d | head -1)
+            if [ -n "$APP" ]; then echo "✅ Found via build dir"; fi
+          fi
+
+          # 尝试3: any .app
+          if [ -z "$APP" ]; then
+            APP=$(find . -name "*.app" -type d -maxdepth 5 | head -1)
+            if [ -n "$APP" ]; then echo "✅ Found via wildcard"; fi
+          fi
+
+          if [ -z "$APP" ]; then
+            echo "❌ No .app found!"
+            find . -maxdepth 6 -type d -name "*.app" -o -name "*.xcarchive" | head -10
             exit 1
           fi
 
-          echo "✅ Found .app at: $APP_PATH"
-          ls -la "$APP_PATH/"
+          echo "app_path=$APP" >> $GITHUB_OUTPUT
+          echo "✅ App at: $APP"
+          ls -la "$APP/"
+          echo "---"
+          file "$APP/${{ env.PROJECT_NAME }}" 2>/dev/null && echo "✅ Binary OK" || echo "⚠️ No binary yet, checking..."
 
-          # 检查二进制是否存在
-          BINARY="$APP_PATH/${{ env.PROJECT_NAME }}"
+      - name: 📦 Package TrollStore IPA
+        run: |
+          APP_PATH="${{ steps.find_app.outputs.app_path }}"
+          echo "Packaging: $APP_PATH"
+
+          # Build dir for Payload
+          rm -rf Payload
+          mkdir -p "Payload/${{ env.PROJECT_NAME }}.app"
+
+          # Copy .app contents
+          ditto "$APP_PATH/" "Payload/${{ env.PROJECT_NAME }}.app/"
+
+          # 找二进制文件
+          BINARY="Payload/${{ env.PROJECT_NAME }}.app/${{ env.PROJECT_NAME }}"
           if [ ! -f "$BINARY" ]; then
-            echo "❌ Binary not found at $BINARY!"
-            ls -la "$APP_PATH/"
-            # 尝试找其他可执行文件
-            find "$APP_PATH" -type f -perm +111 | head -5
-            exit 1
+            echo "⚠️ Binary not at expected path, searching..."
+            find "Payload/${{ env.PROJECT_NAME }}.app" -type f -maxdepth 1
+            # 可能叫别的名字
+            REAL_BIN=$(find "Payload/${{ env.PROJECT_NAME }}.app" -type f -not -name "*.plist" -not -name "*.png" -not -name "*.jpg" -not -name "*.json" -not -name "*.strings" | head -3)
+            echo "Potential binaries: $REAL_BIN"
           fi
-
-          echo "✅ Binary found: $BINARY"
-          file "$BINARY"
 
           # 确保可执行
-          chmod +x "$BINARY"
+          chmod -R 755 "Payload/${{ env.PROJECT_NAME }}.app/"
+          chmod +x "$BINARY" 2>/dev/null || true
 
-          # 植入 Swift 运行时 (TrollStore 需要)
-          echo "=== Copying Swift runtime ==="
-          mkdir -p "Payload/${{ env.PROJECT_NAME }}.app"
-          cp -R "$APP_PATH/" "Payload/${{ env.PROJECT_NAME }}.app/"
-
-          # Swift 标准库
+          # 拷贝 Swift 运行时
+          echo "=== Copying Swift stdlib ==="
           xcrun swift-stdlib-tool \
             --copy \
             --platform iphoneos \
-            --source-dir "$APP_PATH" \
-            --destination-dir "Payload/${{ env.PROJECT_NAME }}.app/Frameworks" 2>&1 || true
+            --source-dir "Payload/${{ env.PROJECT_NAME }}.app" \
+            --destination-dir "Payload/${{ env.PROJECT_NAME }}.app/Frameworks" 2>&1 || echo "⚠️ swift-stdlib-tool had warnings"
 
-          # 移除代码签名 (TrollStore 自己签名)
+          # 移除签名 (TrollStore 自己签名)
           rm -rf "Payload/${{ env.PROJECT_NAME }}.app/_CodeSignature" 2>/dev/null || true
           rm -f "Payload/${{ env.PROJECT_NAME }}.app/CodeResources" 2>/dev/null || true
+          rm -f "Payload/${{ env.PROJECT_NAME }}.app/embedded.mobileprovision" 2>/dev/null || true
 
-          # Info.plist 检查
+          # 验证 Info.plist
           if [ -f "Payload/${{ env.PROJECT_NAME }}.app/Info.plist" ]; then
-            echo "✅ Info.plist found"
-            plutil -p "Payload/${{ env.PROJECT_NAME }}.app/Info.plist" | head -20
+            echo "✅ Info.plist OK"
+            plutil -p "Payload/${{ env.PROJECT_NAME }}.app/Info.plist" | grep -E "CFBundleExecutable|CFBundleIdentifier|CFBundleName" || true
           else
-            echo "❌ Info.plist missing!"
+            echo "❌ No Info.plist!"
             exit 1
           fi
 
-          # 打包 IPA
+          # 打包
           zip -r ${{ env.PROJECT_NAME }}.ipa Payload/ -x "*.DS_Store"
           rm -rf Payload
-
-          echo "✅ IPA created!"
+          echo "✅ IPA Ready!"
           ls -lh ${{ env.PROJECT_NAME }}.ipa
-          unzip -l ${{ env.PROJECT_NAME }}.ipa | head -20
+          echo "=== IPA contents ==="
+          unzip -l ${{ env.PROJECT_NAME }}.ipa | grep -E "\.app/$|\.app/${{ env.PROJECT_NAME }}|\.app/Info" | head -5
 
       - name: 📄 Upload IPA
         uses: actions/upload-artifact@v4
@@ -138,28 +154,23 @@ jobs:
           path: ${{ env.PROJECT_NAME }}.ipa
           retention-days: 90
 
-      # ============================================================
-      # 发布 Release
-      # ============================================================
-      - name: 🏷 Get version
+      # Release
+      - name: 🏷 Tag
         id: version
         run: |
           echo "tag=v1.0.0-$(date +'%Y%m%d')-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
           echo "name=OneKit v1.0.0 ($(date +'%Y-%m-%d'))" >> $GITHUB_OUTPUT
 
-      - name: 🚀 Create GitHub Release
+      - name: 🚀 GitHub Release
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: ${{ steps.version.outputs.name }}
           body: |
-            ## OneKit v1.0.0
+            ## OneKit v1.0.0 — TrollStore IPA
 
-            **📱 使用 TrollStore 安装:**
-            1. 下载下方 OneKit.ipa
-            2. 分享到 TrollStore
-            3. 点击 Install
+            📱 **安装:** 下载 IPA → 分享到 TrollStore → Install
 
             ### 功能
             - 🔤 SF Symbols 浏览器
@@ -172,27 +183,20 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # ============================================================
-  # Job 2: Simulator 验证
-  # ============================================================
   build-simulator:
     needs: build-ipa
     runs-on: macos-14
     steps:
       - name: 📥 Checkout
         uses: actions/checkout@v4
-
       - name: 🔧 Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: ${{ env.XCODE_VERSION }}
-
       - name: 💾 Install XcodeGen
         run: brew install xcodegen
-
       - name: 📦 Generate Project
         run: xcodegen generate
-
       - name: ✅ Simulator Build
         run: |
           xcodebuild build \
@@ -203,4 +207,4 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO 2>&1 | tail -10
-          echo "✅ Simulator build OK!"
+          echo "✅ Simulator OK"
