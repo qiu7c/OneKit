@@ -15,94 +15,57 @@ jobs:
       - uses: maxim-lobanov/setup-xcode@v1
         with: { xcode-version: "15.2" }
 
-      - name: 🏗 Build with swiftc (iOS device, arm64)
+      - run: brew install xcodegen && xcodegen generate
+
+      # 使用 xcodebuild (支持 SPM + 自动处理签名)
+      - name: 🏗 Build
         run: |
-          SDK=$(xcrun --show-sdk-path --sdk iphoneos)
-          echo "SDK: $SDK"
+          xcodebuild build \
+            -project OneKit.xcodeproj \
+            -scheme OneKit \
+            -destination generic/platform=iOS \
+            -configuration Release \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            -derivedDataPath build 2>&1 | tail -10
 
-          SWIFT_FILES=$(find OneKit -name "*.swift" -not -path "*/Pods/*")
-          echo "Compiling $SWIFT_FILES count..."
-
-          mkdir -p Payload/OneKit.app
-
-          swiftc \
-            -sdk "$SDK" \
-            -target arm64-apple-ios16.0 \
-            -module-name OneKit \
-            $SWIFT_FILES \
-            -o Payload/OneKit.app/OneKit 2>&1
-
-      - name: 🖼 Add Resources
+      - name: 🔍 Locate .app
+        id: locate
         run: |
-          # 验证二进制
-          file Payload/OneKit.app/OneKit
-          chmod +x Payload/OneKit.app/OneKit
-
-          # Info.plist
-          cp OneKit/Info.plist Payload/OneKit.app/
-          plutil -replace CFBundleExecutable -string "OneKit" Payload/OneKit.app/Info.plist
-          plutil -replace CFBundleIdentifier -string "com.cc.OneKit" Payload/OneKit.app/Info.plist
-          plutil -replace CFBundleName -string "OneKit" Payload/OneKit.app/Info.plist
-          plutil -replace CFBundleShortVersionString -string "1.0.0" Payload/OneKit.app/Info.plist
-          plutil -replace CFBundleVersion -string "1" Payload/OneKit.app/Info.plist
-          plutil -replace MinimumOSVersion -string "16.0" Payload/OneKit.app/Info.plist
-
-          # 编译 Assets.car + 生成图标 plist
-          echo "=== Compiling Assets.xcassets ==="
-          ls -la OneKit/Resources/Assets.xcassets/AppIcon.appiconset/
-          xcrun actool OneKit/Resources/Assets.xcassets \
-            --compile Payload/OneKit.app/ \
-            --platform iphoneos \
-            --minimum-deployment-target 16.0 \
-            --app-icon AppIcon \
-            --output-partial-info-plist /tmp/icons_plist.plist 2>&1
-
-          echo "=== actool output plist ==="
-          [ -f /tmp/icons_plist.plist ] && plutil -p /tmp/icons_plist.plist || echo "No partial plist"
-
-          # 合并图标信息到 Info.plist
-          if [ -f /tmp/icons_plist.plist ]; then
-            plutil -merge /tmp/icons_plist.plist Payload/OneKit.app/Info.plist
-            echo "✅ Icon plist merged"
+          APP=$(find build -name "OneKit.app" -type d | head -1)
+          [ -z "$APP" ] && APP=$(find . -name "OneKit.app" -type d -maxdepth 5 | head -1)
+          echo "app_path=$APP" >> $GITHUB_OUTPUT
+          ls -la "$APP/"
+          BIN="$APP/OneKit"
+          if [ -f "$BIN" ]; then
+            echo "✅ Binary: $(file "$BIN")"
+          else
+            echo "⚠️ No binary, checking files..."
+            find "$APP" -type f | head -10
           fi
-
-          echo "=== Final Info.plist icon keys ==="
-          plutil -p Payload/OneKit.app/Info.plist | grep -A5 "CFBundleIcons" || echo "No CFBundleIcons"
-
-      - name: ✍️ ldid Sign
-        run: |
-          BIN="Payload/OneKit.app/OneKit"
-
-          # 安装 ldid
-          curl -sL "https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5/ldid_macosx_arm64" -o /tmp/ldid
-          chmod +x /tmp/ldid
-
-          # 简单 entitlements
-          cat > /tmp/ent.xml << 'END'
-          <?xml version="1.0"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0"><dict>
-            <key>application-identifier</key><string>com.cc.OneKit</string>
-          </dict></plist>
-          END
-
-          /tmp/ldid -S/tmp/ent.xml "$BIN" && echo "✅ Signed"
-          chmod -R 755 Payload/OneKit.app/
 
       - name: 📦 Package IPA
         run: |
-          echo "=== Contents ==="
-          find Payload/OneKit.app -maxdepth 2 -type f | head -20
-          zip -r OneKit.ipa Payload/ -x "*.DS_Store"
-          rm -rf Payload
-          echo "✅ IPA: $(ls -lh OneKit.ipa)"
-          unzip -l OneKit.ipa | head -10
+          APP="${{ steps.locate.outputs.app_path }}"
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+
+          # 资源处理
+          xcrun actool OneKit/Resources/Assets.xcassets \
+            --compile Payload/OneKit.app \
+            --platform iphoneos \
+            --minimum-deployment-target 16.0 \
+            --app-icon AppIcon \
+            --output-partial-info-plist /tmp/icon.plist 2>&1 || true
+          [ -f /tmp/icon.plist ] && plutil -merge /tmp/icon.plist Payload/OneKit.app/Info.plist 2>/dev/null || true
+
+          chmod -R 755 Payload/
+          cd Payload && zip -r "../OneKit.ipa" "OneKit.app" -x "*.DS_Store"
+          cd .. && rm -rf Payload
+          echo "✅ $(ls -lh OneKit.ipa)"
 
       - uses: actions/upload-artifact@v4
-        with:
-          name: OneKit.ipa
-          path: OneKit.ipa
-          retention-days: 90
+        with: { name: "OneKit.ipa", path: "OneKit.ipa", retention-days: 90 }
 
       - if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
