@@ -105,7 +105,8 @@ final class MissAVViewModel: NSObject, ObservableObject {
         guard let webView = webView else { log("⚠️ attachToWindow: webView 为 nil"); return }
         guard webView.superview == nil else { log("⏭️ attachToWindow: 已在窗口层级中"); return }
         webView.isHidden = false
-        webView.alpha = 0.02  // alpha < 0.01 会导致 WKWebView 停止加载！
+        webView.alpha = 0.02
+        webView.isUserInteractionEnabled = false  // 不拦截触摸事件
         webView.frame = CGRect(x: 0, y: 0, width: 320, height: 480)
         if let window = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
@@ -441,26 +442,38 @@ extension MissAVViewModel {
 
     /// 自动点击播放器 + 提取 m3u8（atDocumentEnd 自动执行）
     /// MissAV 现在用自定义播放器（非 Plyr），改写策略
-        private static let autoClickJS = """
+            private static let autoClickJS = """
     (() => {
         if (window !== window.top) return;
         if (location.href.indexOf('missav') === -1) return;
         if (location.href.indexOf('/search/') !== -1) return;
         window.webkit.messageHandlers.missavLog.postMessage('[提取] 启动: ' + location.href);
 
+        // ----- 防广告跳转（关键！）-----
+        // 1. 阻止 window.open 打开广告
+        window.open = function() { window.webkit.messageHandlers.missavLog.postMessage('[提取] 阻止 window.open'); return null; };
+
+        // 2. 阻止弹窗/广告点击跳转
+        document.addEventListener('click', function(e) {
+            var target = e.target;
+            // 查找最近的 <a> 标签
+            var a = target.closest ? target.closest('a') : null;
+            if (a && a.href && a.href.indexOf('http') === 0 && a.href.indexOf(location.hostname) === -1) {
+                window.webkit.messageHandlers.missavLog.postMessage('[提取] 阻止外链: ' + a.href.substring(0, 80));
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        }, true);
+
         var _reported = false;
 
         function captureM3U8(url) {
             if (_reported || !url || url.indexOf('.m3u8') === -1) return;
-            if (url.indexOf('growcdnssedge') !== -1 || url.indexOf('doubleclick') !== -1 || url.indexOf('adservice') !== -1) {
-                window.webkit.messageHandlers.missavLog.postMessage('[提取] 广告过滤: ' + url); return;
-            }
+            if (url.indexOf('growcdnssedge') !== -1 || url.indexOf('doubleclick') !== -1 || url.indexOf('adservice') !== -1) return;
             if (url.indexOf('surrit') !== -1) {
                 window.webkit.messageHandlers.missavM3U8.postMessage(url);
-                window.webkit.messageHandlers.missavLog.postMessage('[提取] ✅ surrit: ' + url);
+                window.webkit.messageHandlers.missavLog.postMessage('[提取] ✅ 捕获: ' + url);
                 _reported = true;
-            } else {
-                window.webkit.messageHandlers.missavLog.postMessage('[提取] 跳过: ' + (url.length > 120 ? url.substring(0,120) + '...' : url));
             }
         }
 
@@ -476,47 +489,30 @@ extension MissAVViewModel {
             el.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }));
         }
 
+        // 找播放器并点击
         var started = false;
         var poll = setInterval(function() {
             if (started || _reported) { clearInterval(poll); return; }
-            var els = document.querySelectorAll('video, [class*="play"], [aria-label*="play"], [class*="start"], [class*="Play"]');
-            if (els.length > 0) {
+            var video = document.querySelector('video');
+            var btns = document.querySelectorAll('[class*="play"],[aria-label*="play"],[class*="start"],[class*="Play"]');
+            if (video || btns.length > 0) {
                 started = true; clearInterval(poll);
-                window.webkit.messageHandlers.missavLog.postMessage('[提取] 找到 ' + els.length + ' 个可点击元素');
+                window.webkit.messageHandlers.missavLog.postMessage('[提取] 找到播放器');
 
-                // 先搜 script 里的 surrit
-                document.querySelectorAll('script').forEach(function(s) {
-                    var t = s.textContent || '';
-                    var idx = t.indexOf('surrit');
-                    if (idx !== -1) window.webkit.messageHandlers.missavLog.postMessage('[提取] script surrit: ...' + t.substring(Math.max(0,idx-20), idx+80) + '...');
-                    var m = t.match(/https?://[^"']*surrit[^"']*.m3u8[^"']*/);
-                    if (m) captureM3U8(m[0]);
-                });
-                if (_reported) return;
+                // 先点按钮
+                btns.forEach(function(b) { doClick(b); });
+                if (video) doClick(video);
 
-                var v = document.querySelector('video');
-                if (v && v.src) captureM3U8(v.src);
-                if (_reported) return;
-
-                // 点播放（触发广告跳转）
-                els.forEach(function(el) { doClick(el); });
-                window.webkit.messageHandlers.missavLog.postMessage('[提取] 已点击播放');
-
-                // 等 3s 后 history.back()
-                setTimeout(function() {
-                    window.webkit.messageHandlers.missavLog.postMessage('[提取] 执行 history.back()');
-                    window.history.back();
-                    var w = 0;
-                    var ci = setInterval(function() {
-                        w++;
-                        if (_reported) { clearInterval(ci); return; }
-                        var v2 = document.querySelector('video');
-                        if (v2) window.webkit.messageHandlers.missavLog.postMessage('[提取] video src=' + (v2.src || 'null') + ' currentSrc=' + (v2.currentSrc || 'null'));
-                        if (v2 && v2.src && v2.src.indexOf('.m3u8') !== -1) captureM3U8(v2.src);
-                        if (v2 && v2.currentSrc && v2.currentSrc.indexOf('.m3u8') !== -1) captureM3U8(v2.currentSrc);
-                        if (w >= 15) { clearInterval(ci); window.webkit.messageHandlers.missavLog.postMessage('[提取] 轮询 15s 结束'); }
-                    }, 1000);
-                }, 3000);
+                // 轮询等 surrit/saawsedge
+                var w = 0;
+                var ci = setInterval(function() {
+                    w++;
+                    if (_reported) { clearInterval(ci); return; }
+                    var v = document.querySelector('video');
+                    if (v && v.src) captureM3U8(v.src);
+                    if (v && v.currentSrc) captureM3U8(v.currentSrc);
+                    if (w >= 20) { clearInterval(ci); window.webkit.messageHandlers.missavLog.postMessage('[提取] 轮询 20s 结束'); }
+                }, 1000);
             }
         }, 500);
 
@@ -524,14 +520,11 @@ extension MissAVViewModel {
             if (!started && !_reported) {
                 window.webkit.messageHandlers.missavLog.postMessage('[提取] 10s 兜底');
                 document.body && document.body.click();
-                setTimeout(function() {
-                    var vs = document.querySelector('video');
-                    if (vs && vs.src) captureM3U8(vs.src);
-                }, 8000);
             }
         }, 10000);
     })();
     """
+
 
 }
 
