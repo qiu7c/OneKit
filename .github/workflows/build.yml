@@ -18,22 +18,26 @@ jobs:
       # 从 SFSafeSymbols 提取完整符号列表
       - name: 🔄 Download symbols
         run: |
-          URL="https://raw.githubusercontent.com/SFSafeSymbols/SFSafeSymbols/main/Sources/SFSafeSymbols/SFSymbol.swift"
-          for i in 1 2 3; do
-            if curl -sL "$URL" -o /tmp/SFSymbol.swift && [ -s /tmp/SFSymbol.swift ]; then
-              BYTES=$(wc -c < /tmp/SFSymbol.swift)
-              echo "✅ Downloaded $BYTES bytes"
+          # 尝试多个可能的 URL
+          for URL in \
+            "https://raw.githubusercontent.com/SFSafeSymbols/SFSafeSymbols/develop/Sources/SFSafeSymbols/SFSymbol.swift" \
+            "https://raw.githubusercontent.com/SFSafeSymbols/SFSafeSymbols/main/Sources/SFSafeSymbols/SFSymbol.swift" \
+            "https://raw.githubusercontent.com/SFSafeSymbols/SFSafeSymbols/master/Sources/SFSafeSymbols/SFSymbol.swift"; do
+            for i in 1 2; do
+              BYTES=$(curl -sL "$URL" -o /tmp/SFSymbol.swift -w "%{size_download}" 2>/dev/null)
               if [ "$BYTES" -gt 1000 ]; then
-                # 提取所有 rawValue 字符串: case xxx = "symbol.name"
+                echo "✅ Downloaded from $URL ($BYTES bytes)"
                 grep "case " /tmp/SFSymbol.swift | grep -o '"[^"]*"' | tr -d '"' | sort -u > /tmp/symbols.txt
                 echo "Extracted $(wc -l < /tmp/symbols.txt) symbols"
-                break
+                break 2
               fi
-            fi
-            echo "Attempt $i failed"
-            sleep 3
+            done
           done
-          [ -f /tmp/symbols.txt ] && echo "Sample:" && head -10 /tmp/symbols.txt
+          # fallback: 用内置列表
+          if [ ! -s /tmp/symbols.txt ]; then
+            echo "⚠️ Download failed, using built-in SFSymbolsAll.swift"
+            ls -la OneKit/Models/SFSymbolsAll.swift
+          fi
 
       - name: 🏗 Build
         run: |
