@@ -5,13 +5,18 @@ final class QuickLaunchManager: ObservableObject {
 
     @Published var visibleTools: [ToolItem] = []
 
-    private init() {
-        load()
+    private let fileName = "ql_tools.json"
+
+    private init() { load() }
+
+    private var fileURL: URL {
+        // 用 Documents 目录，TrollStore 更新时保持不变
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(fileName)
     }
 
     private func load() {
         let allTools = ToolItem.builtInTools.filter { $0.isBuiltIn }
-        guard let data = UserDefaults.standard.data(forKey: "ql_tools"),
+        guard let data = try? Data(contentsOf: fileURL),
               let ids = try? JSONDecoder().decode([String].self, from: data),
               !ids.isEmpty else {
             visibleTools = allTools
@@ -20,34 +25,29 @@ final class QuickLaunchManager: ObservableObject {
         let ordered = ids.compactMap { id in allTools.first { $0.id == id } }
         let remaining = allTools.filter { t in !ids.contains(t.id) }
         visibleTools = ordered + remaining
-        // 验证是否成功加载
-        print("[QL] Loaded \(visibleTools.count) tools from UserDefaults")
     }
 
     func toggleTool(_ tool: ToolItem) {
         visibleTools.removeAll { $0.id == tool.id }
-        save()
+        write()
     }
 
     func addTool(_ tool: ToolItem) {
         guard !visibleTools.contains(where: { $0.id == tool.id }) else { return }
         visibleTools.append(tool)
-        save()
+        write()
     }
 
     func move(from source: IndexSet, to destination: Int) {
         visibleTools.move(fromOffsets: source, toOffset: destination)
-        save()
+        write()
     }
 
-    var allAvailable: [ToolItem] {
-        ToolItem.builtInTools.filter { $0.isBuiltIn }
-    }
+    var allAvailable: [ToolItem] { ToolItem.builtInTools.filter { $0.isBuiltIn } }
 
-    private func save() {
+    private func write() {
         let ids = visibleTools.map { $0.id }
         guard let data = try? JSONEncoder().encode(ids) else { return }
-        UserDefaults.standard.set(data, forKey: "ql_tools")
-        print("[QL] Saved \(ids.count) tools")
+        try? data.write(to: fileURL, options: .atomic)
     }
 }
