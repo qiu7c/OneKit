@@ -37,25 +37,3 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
     dependencies:
       - package: SFSafeSymbols
-    preBuildScripts:
-      - name: "SwiftGen Symbols"
-        script: |
-          # 生成 symbols 扩展
-          echo "SFSafeSymbols will be used at runtime"
-          exit 0
-
-  OneKitTests:
-    type: bundle.unit-test
-    platform: iOS
-    sources:
-      - path: OneKitTests
-    dependencies:
-      - target: OneKit
-
-  OneKitUITests:
-    type: bundle.ui-testing
-    platform: iOS
-    sources:
-      - path: OneKitUITests
-    dependencies:
-      - target: OneKit
