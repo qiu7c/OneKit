@@ -6,10 +6,7 @@ enum ToolCategory: String, CaseIterable, Identifiable, Codable {
     var tint: Color { switch self { case .icons: return Color(hex: "#6366F1"); case .design: return Color(hex: "#06B6D4"); case .developer: return Color(hex: "#10B981"); case .utility: return Color(hex: "#8B5CF6"); case .media: return Color(hex: "#EF4444"); case .network: return Color(hex: "#06B6D4") } }
 }
 
-struct ToolItem: Identifiable, Codable, Hashable {
-    let id: String; let title: String; let subtitle: String; let icon: String; let category: ToolCategory; let color: String; let isBuiltIn: Bool; let tags: [String]
-    static let placeholder: ToolItem = .init(id: "more", title: "更多工具", subtitle: "即将推出...", icon: "square.3.layers.3d.down.right", category: .utility, color: "#8B5CF6", isBuiltIn: false, tags: ["即将推出"])
-}
+struct ToolItem: Identifiable, Codable, Hashable { let id: String; let title: String; let subtitle: String; let icon: String; let category: ToolCategory; let color: String; let isBuiltIn: Bool; let tags: [String] }
 
 extension ToolItem {
     static let builtInTools: [ToolItem] = [
@@ -18,7 +15,9 @@ extension ToolItem {
         .init(id: "color-palette", title: "调色板", subtitle: "取色·调色·图片取色", icon: "paintpalette.fill", category: .design, color: "#F59E0B", isBuiltIn: true, tags: ["颜色"]),
         .init(id: "codec", title: "编解码", subtitle: "JSON·Base64·URL·Unicode·Hash", icon: "curlybraces.square.fill", category: .developer, color: "#10B981", isBuiltIn: true, tags: ["JSON"]),
         .init(id: "http-request", title: "HTTP 请求", subtitle: "GET·POST·PUT·DELETE", icon: "paperplane.fill", category: .developer, color: "#6366F1", isBuiltIn: true, tags: ["HTTP"]),
+        .init(id: "regex-tester", title: "正则测试", subtitle: "正则编写·实时匹配", icon: "doc.text.magnifyingglass", category: .developer, color: "#3B82F6", isBuiltIn: true, tags: ["正则"]),
         .init(id: "delta-force", title: "三角洲助手", subtitle: "今日密码·改枪码·交易行", icon: "scope", category: .utility, color: "#DC2626", isBuiltIn: true, tags: ["三角洲"]),
+        .init(id: "missav", title: "影视探索", subtitle: "搜索·浏览·在线播放", icon: "play.rectangle.fill", category: .media, color: "#EF4444", isBuiltIn: true, tags: ["视频"]),
         .init(id: "more-2", title: "二维码生成", subtitle: "生成和扫描二维码", icon: "qrcode", category: .utility, color: "#8B5CF6", isBuiltIn: false, tags: ["即将推出"]),
         .init(id: "more-3", title: "图片压缩", subtitle: "批量压缩图片", icon: "photo.compress", category: .media, color: "#EF4444", isBuiltIn: false, tags: ["即将推出"]),
         .init(id: "more-4", title: "IP 工具", subtitle: "网络诊断·IP查询", icon: "wifi.square.fill", category: .network, color: "#06B6D4", isBuiltIn: false, tags: ["即将推出"]),

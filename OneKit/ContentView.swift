@@ -34,7 +34,9 @@ struct ToolsListView: View {
                 case "color-palette": ColorPaletteView()
                 case "codec": CodecView()
                 case "http-request": HttpRequestView()
+                case "regex-tester": RegexTesterView()
                 case "delta-force": DeltaForceView()
+                case "missav": MissAVSearchView()
                 default: PlaceholderView(tool: tool)
                 }
             }

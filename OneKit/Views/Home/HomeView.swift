@@ -10,15 +10,12 @@ struct HomeView: View {
     var body: some View {
         if isEditing {
             NavigationStack {
-                editView
-                .navigationTitle("编辑").navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .navigationBarTrailing) { Button("完成") { withAnimation { isEditing = false } }.foregroundColor(.appForeground) } }
+                editView.navigationTitle("编辑").navigationBarTitleDisplayMode(.inline)
+                    .toolbar { ToolbarItem(placement: .navigationBarTrailing) { Button("完成") { withAnimation { isEditing = false } }.foregroundColor(.appForeground) } }
             }
         } else {
             NavigationStack {
-                normalView
-                .navigationTitle("OneKit").navigationBarTitleDisplayMode(.large)
-                .toolbar { ToolbarItem(placement: .navigationBarTrailing) { Button("编辑") { withAnimation { isEditing = true } }.foregroundColor(.appForeground) } }
+                normalView.navigationTitle("OneKit").navigationBarTitleDisplayMode(.large)
             }
         }
     }
@@ -33,11 +30,17 @@ struct HomeView: View {
                     }
                 }.padding(.horizontal, 16)
                 if qlManager.visibleTools.isEmpty {
-                    VStack(spacing: 12) { Image(systemName: "square.grid.2x2").font(.system(size: 40)).foregroundColor(.appSecondary.opacity(0.5)); Text("点击右上角「编辑」添加工具").font(.body).foregroundColor(.appSecondary) }.frame(maxWidth: .infinity).padding(.vertical, 40)
+                    VStack(spacing: 12) { Image(systemName: "square.grid.2x2").font(.system(size: 40)).foregroundColor(.appSecondary.opacity(0.5)); Text("长按空白区域添加工具").font(.body).foregroundColor(.appSecondary) }.frame(maxWidth: .infinity).padding(.vertical, 40)
                 }
-            }.padding(.top, 8).padding(.bottom, 24)
+            }
+            .padding(.top, 8).padding(.bottom, 24)
         }
         .background(Color.appBackground)
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) { withAnimation { isEditing = true } }
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.5).onEnded { _ in withAnimation { Haptic.medium(); isEditing = true } }
+        )
         .task { pwdLoading = true; if let d = try? await DeltaForceService.shared.fetchDailyPasswords() { pwdData = d }; pwdLoading = false }
     }
 
@@ -52,8 +55,13 @@ struct HomeView: View {
             if let d = pwdData {
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
                     ForEach(d.codes) { p in
-                        VStack(spacing: 2) { Text(p.name).font(.system(size: 8)).foregroundColor(.appSecondary).lineLimit(1); Text(p.code).font(.system(size: 16, design: .monospaced)).fontWeight(.bold).foregroundColor(.appForeground) }
-                            .padding(6).frame(maxWidth: .infinity).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 6)).onTapGesture { UIPasteboard.general.string = p.code; Haptic.success() }
+                        VStack(spacing: 2) {
+                            Text(p.name).font(.system(size: 8)).foregroundColor(.appSecondary).lineLimit(1)
+                            Text(p.code).font(.system(size: 16, design: .monospaced)).fontWeight(.bold).foregroundColor(.appForeground)
+                        }
+                        .padding(6).frame(maxWidth: .infinity).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 6))
+                        .contentShape(Rectangle())
+                        .onTapGesture { UIPasteboard.general.string = p.code; Haptic.success() }
                     }
                 }
             }
@@ -66,10 +74,7 @@ struct HomeView: View {
             Section(header: Text("已显示 (\(qlManager.visibleTools.count))")) {
                 ForEach(qlManager.visibleTools) { tool in
                     HStack(spacing: 12) { Image(systemName: tool.icon).foregroundColor(Color.iconTint(for: tool.color)).frame(width: 28); VStack(alignment: .leading, spacing: 2) { Text(tool.title).font(.body).foregroundColor(.appForeground); Text(tool.subtitle).font(.caption).foregroundColor(.appSecondary) } }
-                }.onMove { from, to in qlManager.move(from: from, to: to) }.onDelete { idx in
-                    let toRemove = idx.map { qlManager.visibleTools[$0] }
-                    for tool in toRemove { qlManager.toggleTool(tool) }
-                }
+                }.onMove { from, to in qlManager.move(from: from, to: to) }.onDelete { idx in let toRemove = idx.map { qlManager.visibleTools[$0] }; for t in toRemove { qlManager.toggleTool(t) } }
             }
             Section(header: Text("未显示")) {
                 ForEach(qlManager.allAvailable.filter { t in !qlManager.visibleTools.contains(where: { $0.id == t.id }) }) { tool in
@@ -97,7 +102,9 @@ struct HomeView: View {
         case "color-palette": ColorPaletteView()
         case "codec": CodecView()
         case "http-request": HttpRequestView()
+        case "regex-tester": RegexTesterView()
         case "delta-force": DeltaForceView()
+        case "missav": MissAVSearchView()
         default: PlaceholderView(tool: tool)
         }
     }
