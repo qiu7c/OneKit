@@ -7,7 +7,6 @@ struct HttpRequestView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 14) {
-                // Method + URL
                 VStack(spacing: 8) {
                     HStack(spacing: 4) {
                         ForEach(HttpMethod.allCases, id: \.self) { m in
@@ -25,18 +24,13 @@ struct HttpRequestView: View {
                     }.padding(10).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 10))
                 }.padding(.horizontal, 16)
 
-                // Send + Clear
                 HStack(spacing: 8) {
                     Button { vm.send() } label: {
-                        HStack(spacing: 6) {
-                            if vm.isLoading { ProgressView().scaleEffect(0.7).tint(Color.appBackground) } else { Image(systemName: "paperplane.fill").font(.caption) }
-                            Text(vm.isLoading ? "请求中..." : "发送 \(vm.method.rawValue)").fontWeight(.semibold)
-                        }.frame(maxWidth: .infinity).frame(height: 42).foregroundColor(Color.appBackground).background(methodColor(vm.method)).clipShape(RoundedRectangle(cornerRadius: 10))
+                        HStack(spacing: 6) { if vm.isLoading { ProgressView().scaleEffect(0.7).tint(Color.appBackground) } else { Image(systemName: "paperplane.fill").font(.caption) }; Text(vm.isLoading ? "请求中..." : "发送 \(vm.method.rawValue)").fontWeight(.semibold) }.frame(maxWidth: .infinity).frame(height: 42).foregroundColor(Color.appBackground).background(methodColor(vm.method)).clipShape(RoundedRectangle(cornerRadius: 10))
                     }.disabled(vm.isLoading)
                     Button { vm.clear() } label: { Image(systemName: "trash").font(.body).foregroundColor(.appSecondary).frame(width: 42, height: 42).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 10)) }
                 }.padding(.horizontal, 16)
 
-                // Headers
                 VStack(spacing: 6) {
                     Button { withAnimation { showHeaders.toggle() } } label: {
                         HStack { Image(systemName: "list.bullet").font(.caption).foregroundColor(.appSecondary); Text("Headers").font(.subheadline).foregroundColor(.appForeground); Spacer(); Text(vm.headersText.isEmpty ? "选填" : "已填").font(.caption).foregroundColor(.appSecondary); Image(systemName: showHeaders ? "chevron.down" : "chevron.right").font(.caption2).foregroundColor(.appTertiary) }.padding(10).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 8))
@@ -44,7 +38,6 @@ struct HttpRequestView: View {
                     if showHeaders { TextEditor(text: $vm.headersText).font(.system(.caption, design: .monospaced)).frame(minHeight: 60).padding(6).scrollContentBackground(.hidden).background(Color.appCard).overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.appSeparator.opacity(0.3), lineWidth: 0.5)).clipShape(RoundedRectangle(cornerRadius: 8)) }
                 }.padding(.horizontal, 16)
 
-                // Body
                 if vm.method != .GET {
                     VStack(spacing: 6) {
                         Button { withAnimation { showBody.toggle() } } label: {
@@ -54,21 +47,16 @@ struct HttpRequestView: View {
                     }.padding(.horizontal, 16)
                 }
 
-                // Status
                 if let code = vm.statusCode {
                     HStack { Circle().fill(code < 400 ? Color.green : Color.red).frame(width: 6, height: 6); Text("\(code)").font(.system(.body, design: .monospaced)).fontWeight(.bold).foregroundColor(.appForeground); Text(statusText(code)).font(.caption).foregroundColor(.appSecondary); Spacer(); Button { UIPasteboard.general.string = vm.responseText; Haptic.success() } label: { Text("复制全部").font(.caption2).foregroundColor(Color.appBackground).padding(.horizontal, 10).padding(.vertical, 4).background(Color.appForeground).clipShape(Capsule()) } }.padding(.horizontal, 16)
                 }
 
-                // Error
                 if vm.showError, let err = vm.errorMessage { HStack(spacing: 6) { Image(systemName: "exclamationmark.triangle.fill").font(.caption).foregroundColor(.orange); Text(err).font(.caption).foregroundColor(.orange) }.padding(.horizontal, 16).frame(maxWidth: .infinity, alignment: .leading) }
 
-                // Response
                 if !vm.responseText.isEmpty {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack { Text("响应").font(.caption).fontWeight(.semibold).foregroundColor(.appSecondary); Spacer(); Text("\(vm.responseText.count) bytes").font(.caption2).foregroundColor(.appTertiary) }.padding(.horizontal, 16)
-                        if let d = vm.responseText.data(using: .utf8), let obj = try? JSONSerialization.jsonObject(with: d) { jsonView(obj, indent: 0) } else {
-                            ScrollView(.horizontal) { Text(vm.responseText).font(.system(.caption, design: .monospaced)).foregroundColor(.appForeground).padding(12).textSelection(.enabled) }.background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 10)).padding(.horizontal, 16)
-                        }
+                        if let d = vm.responseText.data(using: .utf8), let obj = try? JSONSerialization.jsonObject(with: d) { jsonView(obj, indent: 0) } else { ScrollView(.horizontal) { Text(vm.responseText).font(.system(.caption, design: .monospaced)).foregroundColor(.appForeground).padding(12).textSelection(.enabled) }.background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 10)).padding(.horizontal, 16) }
                     }
                 }
             }.padding(.vertical, 8)
@@ -77,27 +65,22 @@ struct HttpRequestView: View {
         .navigationTitle("HTTP 请求").navigationBarTitleDisplayMode(.inline).toolbar(.hidden, for: .tabBar)
     }
 
-    // MARK: - JSON 树 (AnyView 避免递归 opaque 类型)
     private func jsonView(_ value: Any, indent: Int) -> AnyView {
         if let dict = value as? [String: Any] {
             let rows = dict.keys.sorted().map { k -> AnyView in
-                VStack(alignment: .leading, spacing: 1) {
-                    HStack(spacing: 4) {
-                        Text(String(repeating: "  ", count: indent)).font(.system(size: 8))
-                        Text(k).font(.system(.caption, design: .monospaced)).fontWeight(.semibold).foregroundColor(.blue)
-                        Text(":").font(.caption).foregroundColor(.appSecondary)
-                    }
-                    jsonView(dict[k]!, indent: indent + 1)
-                }
+                let v = jsonView(dict[k]!, indent: indent + 1)
+                return AnyView(VStack(alignment: .leading, spacing: 1) {
+                    HStack(spacing: 4) { Text(String(repeating: "  ", count: indent)).font(.system(size: 8)); Text(k).font(.system(.caption, design: .monospaced)).fontWeight(.semibold).foregroundColor(.blue); Text(":").font(.caption).foregroundColor(.appSecondary) }
+                    v
+                })
             }
             return AnyView(VStack(alignment: .leading, spacing: 1) { ForEach(Array(rows.enumerated()), id: \.offset) { $0.element } })
         } else if let arr = value as? [Any] {
             let rows = arr.enumerated().map { i, v -> AnyView in
-                HStack(spacing: 4) {
-                    Text(String(repeating: "  ", count: indent) + "[\(i)]").font(.system(.caption, design: .monospaced)).foregroundColor(.appTertiary)
-                    if JSONSerialization.isValidJSONObject([v]) { AnyView(EmptyView()) }
+                return AnyView(HStack(spacing: 4) {
+                    Text("[\(i)]").font(.system(.caption, design: .monospaced)).foregroundColor(.appTertiary)
                     jsonView(v, indent: indent + 1)
-                }
+                }.padding(.leading, CGFloat(indent) * 8))
             }
             return AnyView(VStack(alignment: .leading, spacing: 1) { ForEach(Array(rows.enumerated()), id: \.offset) { $0.element } })
         } else {
