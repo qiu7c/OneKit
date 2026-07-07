@@ -4,6 +4,16 @@ struct CodecView: View {
     @StateObject private var vm = CodecViewModel()
     @State private var showCopied = false
 
+    var btnLabel: String {
+        switch vm.selectedTab {
+        case .json: return "格式化"
+        case .base64: return "编码"
+        case .url: return "编码"
+        case .unicode: return "转换"
+        case .hash: return "计算"
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             ScrollView(.horizontal, showsIndicators: false) {
@@ -23,7 +33,6 @@ struct CodecView: View {
                 }.padding(.horizontal, 16)
             }
             .padding(.vertical, 10)
-            .background(Color.appBackground)
 
             Divider()
 
@@ -34,7 +43,6 @@ struct CodecView: View {
                         HStack {
                             Text("输入").font(.caption).fontWeight(.semibold).foregroundColor(.appSecondary)
                             Spacer()
-                            Button { vm.clear() } label: { Text("清空").font(.caption2).foregroundColor(.appSecondary) }
                         }.padding(.horizontal, 16)
 
                         ZStack(alignment: .topLeading) {
@@ -54,7 +62,7 @@ struct CodecView: View {
                     // Buttons
                     HStack(spacing: 10) {
                         Button { vm.process() } label: {
-                            HStack(spacing: 6) { Image(systemName: "play.fill").font(.caption); Text("执行").fontWeight(.semibold) }
+                            HStack(spacing: 6) { Image(systemName: "play.fill").font(.caption); Text(btnLabel).fontWeight(.semibold) }
                                 .frame(maxWidth: .infinity).frame(height: 40)
                                 .foregroundColor(Color.appBackground).background(Color.appForeground)
                                 .clipShape(RoundedRectangle(cornerRadius: 10))

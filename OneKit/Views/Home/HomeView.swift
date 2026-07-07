@@ -10,11 +10,15 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             if isEditing {
-                editView.navigationTitle("编辑").navigationBarTitleDisplayMode(.inline)
+                editView
+                    .navigationTitle("编辑").navigationBarTitleDisplayMode(.inline)
                     .toolbar { ToolbarItem(placement: .navigationBarTrailing) { Button("完成") { withAnimation { isEditing = false } }.foregroundColor(.appForeground) } }
+                    .id("edit")
             } else {
-                normalView.navigationTitle("OneKit").navigationBarTitleDisplayMode(.large)
+                normalView
+                    .navigationTitle("OneKit").navigationBarTitleDisplayMode(.large)
                     .toolbar { ToolbarItem(placement: .navigationBarTrailing) { Button("编辑") { withAnimation { isEditing = true } }.foregroundColor(.appForeground) } }
+                    .id("normal")
             }
         }
     }

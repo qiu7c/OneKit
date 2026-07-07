@@ -1,6 +1,5 @@
 import SwiftUI
 
-// MARK: - SF Symbols ViewModel
 @MainActor
 class SFSymbolsViewModel: ObservableObject {
     @Published var searchText: String = ""
@@ -8,51 +7,48 @@ class SFSymbolsViewModel: ObservableObject {
     @Published var filteredSymbols: [SFSymbolItem] = []
     @Published var selectedSymbol: SFSymbolItem?
     @Published var isShowingDetail = false
+    @Published var showFavoritesOnly = false
 
     private let service = SFSymbolService.shared
+    private let config = ConfigManager.shared
 
-    init() {
-        Task {
-            await loadSymbols()
-        }
-    }
+    init() { Task { await loadSymbols() } }
 
-    // MARK: - 加载 Symbols
     func loadSymbols() async {
         let symbols = await service.symbols(for: selectedCategory)
-        filteredSymbols = symbols
+        filteredSymbols = showFavoritesOnly ? symbols.filter { config.isFavorite($0.id) } : symbols
     }
 
-    // MARK: - 搜索
     func search() {
         Task {
             if searchText.isEmpty {
                 let symbols = await service.symbols(for: selectedCategory)
-                filteredSymbols = symbols
+                filteredSymbols = showFavoritesOnly ? symbols.filter { config.isFavorite($0.id) } : symbols
             } else {
                 let results = await service.searchSymbols(query: searchText)
-                filteredSymbols = results
+                filteredSymbols = showFavoritesOnly ? results.filter { config.isFavorite($0.id) } : results
             }
         }
     }
 
-    // MARK: - 切换分类
     func selectCategory(_ category: SFSymbolCategory) {
-        selectedCategory = category
-        searchText = ""
+        selectedCategory = category; searchText = ""; search()
+    }
+
+    func selectSymbol(_ symbol: SFSymbolItem) {
+        selectedSymbol = symbol; isShowingDetail = true; Haptic.light()
+    }
+
+    func toggleFavorite(_ symbol: SFSymbolItem) {
+        config.toggleFavorite(symbol.id)
         search()
     }
 
-    // MARK: - 选择 Symbol
-    func selectSymbol(_ symbol: SFSymbolItem) {
-        selectedSymbol = symbol
-        isShowingDetail = true
-        Haptic.light()
+    func isFavorite(_ symbol: SFSymbolItem) -> Bool {
+        config.isFavorite(symbol.id)
     }
 
-    // MARK: - 复制名称
     func copySymbolName(_ symbol: SFSymbolItem) {
-        UIPasteboard.general.string = symbol.id
-        Haptic.success()
+        UIPasteboard.general.string = symbol.id; Haptic.success()
     }
 }
