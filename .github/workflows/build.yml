@@ -60,8 +60,11 @@ jobs:
           [ -f /tmp/icon.plist ] && plutil -merge /tmp/icon.plist Payload/OneKit.app/Info.plist 2>/dev/null || true
 
           chmod -R 755 Payload/
-          cd Payload && zip -r "../OneKit.ipa" "OneKit.app" -x "*.DS_Store"
-          cd .. && rm -rf Payload
+          # 重要: 必须在 Payload 外层 zip, 保持 Payload/OneKit.app/ 结构
+          zip -r OneKit.ipa Payload/ -x "*.DS_Store"
+          rm -rf Payload
+          echo "=== IPA structure ==="
+          unzip -l OneKit.ipa | head -5
           echo "✅ $(ls -lh OneKit.ipa)"
 
       - uses: actions/upload-artifact@v4
