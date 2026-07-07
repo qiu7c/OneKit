@@ -66,16 +66,52 @@ struct PlaceholderView: View {
 
 struct SettingsView: View {
     @StateObject private var themeManager = ThemeManager.shared
+
     var body: some View {
         NavigationStack {
             List {
+                // 作者
                 Section {
-                    VStack(spacing: 8) { Image(systemName: "square.3.layers.3d").font(.system(size: 40)).foregroundColor(.appForeground); Text("OneKit").font(.title2).fontWeight(.bold); Text("v1.0.0").font(.caption).foregroundColor(.appSecondary) }.frame(maxWidth: .infinity).padding(.vertical, 20)
-                }.listRowBackground(Color.clear)
-                Section("主题") { ForEach(AppTheme.allCases) { t in Button { themeManager.currentTheme = t; Haptic.selection() } label: { HStack(spacing: 12) { Image(systemName: t.icon).font(.body).foregroundColor(.appForeground).frame(width: 24); Text(t.rawValue).font(.body).foregroundColor(.appForeground); Spacer(); if themeManager.currentTheme == t { Image(systemName: "checkmark").font(.caption).foregroundColor(.appForeground) } } } } }
-                Section("关于") { LabeledContent("包名", value: "com.cc.OneKit"); LabeledContent("平台", value: "iOS 16+"); LabeledContent("技术栈", value: "SwiftUI") }
-                Section { Link(destination: URL(string: "https://github.com/qiu7c/OneKit")!) { Label("GitHub 仓库", systemImage: "chevron.left.forwardslash.chevron.right") } }
-            }.listStyle(.insetGrouped).navigationTitle("设置").navigationBarTitleDisplayMode(.large)
+                    HStack(spacing: 12) {
+                        AsyncImage(url: URL(string: "http://q1.qlogo.cn/g?b=qq&nk=921569084&s=100")) { p in
+                            if let img = p.image { img.resizable().frame(width: 44, height: 44).clipShape(Circle()) }
+                            else { Circle().fill(Color.appCard).frame(width: 44, height: 44).overlay(Image(systemName: "person.fill").font(.body).foregroundColor(.appSecondary)) }
+                        }
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("cc").font(.body).fontWeight(.semibold).foregroundColor(.appForeground)
+                            Text("开发者").font(.caption).foregroundColor(.appSecondary)
+                        }
+                        Spacer()
+                        Image(systemName: "square.3.layers.3d").font(.title2).foregroundColor(.appSecondary)
+                    }.padding(.vertical, 4)
+                }
+
+                // 主题 - 紧凑
+                Section("主题") {
+                    Picker("主题", selection: $themeManager.currentTheme) {
+                        ForEach(AppTheme.allCases) { theme in
+                            HStack {
+                                Image(systemName: theme.icon)
+                                Text(theme.rawValue)
+                            }.tag(theme)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+
+                Section("关于") {
+                    LabeledContent("版本", value: "1.0.0")
+                    LabeledContent("平台", value: "iOS 16+")
+                    LabeledContent("技术栈", value: "SwiftUI")
+                }
+
+                Section {
+                    Link(destination: URL(string: "https://github.com/qiu7c/OneKit")!) {
+                        Label("GitHub 仓库", systemImage: "chevron.left.forwardslash.chevron.right")
+                    }
+                }
+            }
+            .listStyle(.insetGrouped).navigationTitle("设置").navigationBarTitleDisplayMode(.large)
         }
     }
 }

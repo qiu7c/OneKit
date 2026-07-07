@@ -3,16 +3,20 @@ import SwiftUI
 struct HomeView: View {
     @StateObject private var qlManager = QuickLaunchManager.shared
     @State private var isEditing = false
-    @State private var showPwd = true
+    @AppStorage("show_delta_pwd") private var showPwd = true
     @State private var pwdData: DailyPwdData?
     @State private var pwdLoading = true
 
     var body: some View {
         NavigationStack {
-            if isEditing { editView } else { normalView }
+            if isEditing {
+                editView.navigationTitle("编辑").navigationBarTitleDisplayMode(.inline)
+                    .toolbar { ToolbarItem(placement: .navigationBarTrailing) { Button("完成") { withAnimation { isEditing = false } }.foregroundColor(.appForeground) } }
+            } else {
+                normalView.navigationTitle("OneKit").navigationBarTitleDisplayMode(.large)
+                    .toolbar { ToolbarItem(placement: .navigationBarTrailing) { Button("编辑") { withAnimation { isEditing = true } }.foregroundColor(.appForeground) } }
+            }
         }
-        .navigationTitle(isEditing ? "编辑" : "OneKit")
-        .navigationBarTitleDisplayMode(isEditing ? .inline : .large)
     }
 
     private var normalView: some View {
@@ -30,7 +34,6 @@ struct HomeView: View {
             }.padding(.top, 8).padding(.bottom, 24)
         }
         .background(Color.appBackground)
-        .toolbar { ToolbarItem(placement: .navigationBarTrailing) { Button("编辑") { withAnimation { isEditing = true } }.foregroundColor(.appForeground) } }
         .task { pwdLoading = true; if let d = try? await DeltaForceService.shared.fetchDailyPasswords() { pwdData = d }; pwdLoading = false }
     }
 

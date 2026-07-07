@@ -56,7 +56,7 @@ struct SFSymbolsListView: View {
                         Text(category.rawValue)
                             .font(.caption)
                             .fontWeight(viewModel.selectedCategory == category ? .semibold : .regular)
-                            .foregroundColor(viewModel.selectedCategory == category ? .white : .appForeground)
+                            .foregroundColor(viewModel.selectedCategory == category ? Color.appBackground : .appForeground)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 6)
                             .background(
