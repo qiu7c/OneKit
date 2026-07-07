@@ -15,9 +15,56 @@ jobs:
       - uses: maxim-lobanov/setup-xcode@v1
         with: { xcode-version: "15.2" }
 
-      # swiftc 直接编译 (已验证能出 arm64 真机二进制)
+      # 从系统字体提取所有真实 SF Symbols
+      - name: 🔄 Enumerate real SF Symbols
+        run: |
+          cat > /tmp/gen.swift << 'ENDSWIFT'
+          import Foundation
+          import CoreText
+
+          let familyName = "SF Pro"
+          let desc = CTFontDescriptorCreateWithAttributes([
+              kCTFontFamilyNameAttribute: familyName
+          ] as CFDictionary)
+          let matched = CTFontDescriptorCreateMatchingFontDescriptors(desc, nil) as? [CTFontDescriptor] ?? []
+
+          var allNames = Set<String>()
+          for fd in matched {
+              let name = CTFontDescriptorCopyAttribute(fd, kCTFontNameAttribute) as? String ?? ""
+              guard name.contains("Symbol") || !name.hasPrefix(".") else { continue }
+              guard let font = CTFontCreateWithFontDescriptor(fd, 0.0, nil) as CTFont? else { continue }
+              let count = CTFontGetGlyphCount(font)
+              for i in 0..<min(Int(count), 5000) {
+                  let glyph = CGGlyph(i)
+                  if let n = CTFontCopyGlyphName(font, glyph) as String?, !n.isEmpty {
+                      allNames.insert(n)
+                  }
+              }
+          }
+
+          for n in allNames.sorted() { print(n) }
+          ENDSWIFT
+
+          xcrun swift /tmp/gen.swift > /tmp/symbols.txt 2>/dev/null
+          echo "Found $(wc -l < /tmp/symbols.txt) symbols"
+
+      # swiftc 直接编译
       - name: 🏗 Build
         run: |
+          # 用枚举出的真实符号列表替换生成文件
+          cat > /tmp/gen_swift.swift << 'SWIFT'
+          import Foundation
+          let names = try! String(contentsOfFile: "/tmp/symbols.txt")
+              .components(separatedBy: .newlines)
+              .filter { !$0.isEmpty && !$0.hasPrefix(".") }
+          var code = "// Auto-generated (\(names.count) symbols)\nextension SFSymbolItem {\n    static let allSymbolNames: [String] = [\n"
+          for name in names { code += "        \"\(name)\",\n" }
+          code += "    ]\n}\n"
+          try! code.write(toFile: "OneKit/Models/SFSymbolsAll.swift", atomically: true, encoding: .utf8)
+          print("Generated \(names.count) symbols")
+          SWIFT
+          xcrun swift /tmp/gen_swift.swift
+
           SDK=$(xcrun --show-sdk-path --sdk iphoneos)
           SRCS=$(find OneKit -name "*.swift")
           mkdir -p Payload/OneKit.app
