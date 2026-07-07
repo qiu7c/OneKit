@@ -102,7 +102,8 @@ extension MissAVViewModel {
         guard !query.trimmingCharacters(in: .whitespaces).isEmpty else { return [] }
 
         await MainActor.run { self.state = .searching }
-        ensureWebView()
+        if webView == nil { setupWebView() }
+        attachToWindow()
 
         return try await withCheckedThrowingContinuation { continuation in
             self.searchContinuation = continuation
@@ -121,7 +122,8 @@ extension MissAVViewModel {
     /// 提取视频的 m3u8 地址
     func extractM3U8(for video: MissAVMedia) async throws -> String {
         await MainActor.run { self.state = .extracting; self.selectedVideo = video }
-        ensureWebView()
+        if webView == nil { setupWebView() }
+        attachToWindow()
 
         return try await withCheckedThrowingContinuation { continuation in
             self.m3u8Continuation = continuation
