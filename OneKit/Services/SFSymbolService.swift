@@ -1,45 +1,38 @@
 import SwiftUI
+import SFSafeSymbols
 
-// MARK: - SF Symbols 服务
+// MARK: - SF Symbols 服务 (使用 SFSafeSymbols 全量列表)
 actor SFSymbolService {
     static let shared = SFSymbolService()
 
     private init() {}
 
-    /// 缓存已验证在当前 iOS 可用的符号
+    /// 缓存已验证可用的符号
     private var validCache: [String: Bool] = [:]
 
-    /// 检查符号在当前系统是否可用
-    private func isValidOnCurrentOS(_ name: String) -> Bool {
+    private func isValid(_ name: String) -> Bool {
         if let cached = validCache[name] { return cached }
         let available = UIImage(systemName: name) != nil
         validCache[name] = available
         return available
     }
 
-    /// 获取所有可用符号 (只返回当前 iOS 支持的)
-    private func availableSymbols() -> [String] {
-        SFSymbolItem.allSymbolNames.filter { isValidOnCurrentOS($0) }
+    private var allNames: [String] {
+        SFSymbol.allSymbols.map { $0.rawValue }.filter { isValid($0) }
     }
 
-    /// 搜索
     func searchSymbols(query: String) -> [SFSymbolItem] {
-        let lowercased = query.lowercased()
-        return availableSymbols()
-            .filter { $0.lowercased().contains(lowercased) }
-            .sorted()
-            .map { makeItem($0) }
+        let q = query.lowercased()
+        return allNames.filter { $0.lowercased().contains(q) }.sorted().map { makeItem($0) }
     }
 
-    /// 按分类获取
     func symbols(for category: SFSymbolCategory) -> [SFSymbolItem] {
-        let names = category == .all ? availableSymbols()
-            : availableSymbols().filter { categoryForSymbol($0) == category }
+        let names = category == .all ? allNames : allNames.filter { categoryForSymbol($0) == category }
         return names.sorted().map { makeItem($0) }
     }
 
     private func makeItem(_ name: String) -> SFSymbolItem {
-        SFSymbolItem(id: name, name: name, category: categoryForSymbol(name), keywords: [], isMulticolor: false, availability: "iOS 16+")
+        SFSymbolItem(id: name, name: name, category: categoryForSymbol(name), keywords: [], isMulticolor: name.hasSuffix(".fill"), availability: "iOS 16+")
     }
 
     private func categoryForSymbol(_ name: String) -> SFSymbolCategory {

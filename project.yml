@@ -5,6 +5,11 @@ options:
     iOS: "16.0"
   xcodeVersion: "15.0"
 
+packages:
+  SFSafeSymbols:
+    url: https://github.com/SFSafeSymbols/SFSafeSymbols
+    from: 4.0.0
+
 settings:
   base:
     SWIFT_VERSION: "5.7"
@@ -30,4 +35,5 @@ targets:
         SWIFT_ACTIVE_COMPILER_CONDITIONS: "$(inherited) DEBUG"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1"
-    dependencies: []
+    dependencies:
+      - package: SFSafeSymbols

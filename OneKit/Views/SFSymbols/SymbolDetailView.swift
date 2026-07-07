@@ -91,6 +91,7 @@ struct SymbolDetailView: View {
         renderAndSave()
     }
 
+    @MainActor
     private func renderAndSave() {
         let imageView = Image(systemName: symbol.id)
             .font(.system(size: 180))
