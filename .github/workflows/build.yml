@@ -15,20 +15,25 @@ jobs:
       - uses: maxim-lobanov/setup-xcode@v1
         with: { xcode-version: "15.2" }
 
-      # 从 SFSafeSymbols 源码提取完整符号列表
+      # 从 SFSafeSymbols 提取完整符号列表
       - name: 🔄 Download symbols
         run: |
-          URL="https://raw.githubusercontent.com/SFSafeSymbols/SFSafeSymbols/develop/Sources/SFSafeSymbols/SFSymbol.swift"
+          URL="https://raw.githubusercontent.com/SFSafeSymbols/SFSafeSymbols/main/Sources/SFSafeSymbols/SFSymbol.swift"
           for i in 1 2 3; do
-            if curl -sL "$URL" -o /tmp/SFSymbol.swift && [ -s /tmp/SFSymbol.swift ] && [ "$(wc -c < /tmp/SFSymbol.swift)" -gt 100 ]; then
-              echo "✅ Downloaded ($(wc -l < /tmp/SFSymbol.swift) lines)"
-              grep -o '"[^"]*"' /tmp/SFSymbol.swift | tr -d '"' | grep -v '^\s*$' | sort -u > /tmp/symbols.txt
-              echo "Extracted $(wc -l < /tmp/symbols.txt) symbols"
-              break
+            if curl -sL "$URL" -o /tmp/SFSymbol.swift && [ -s /tmp/SFSymbol.swift ]; then
+              BYTES=$(wc -c < /tmp/SFSymbol.swift)
+              echo "✅ Downloaded $BYTES bytes"
+              if [ "$BYTES" -gt 1000 ]; then
+                # 提取所有 rawValue 字符串: case xxx = "symbol.name"
+                grep "case " /tmp/SFSymbol.swift | grep -o '"[^"]*"' | tr -d '"' | sort -u > /tmp/symbols.txt
+                echo "Extracted $(wc -l < /tmp/symbols.txt) symbols"
+                break
+              fi
             fi
             echo "Attempt $i failed"
             sleep 3
           done
+          [ -f /tmp/symbols.txt ] && echo "Sample:" && head -10 /tmp/symbols.txt
 
       - name: 🏗 Build
         run: |

@@ -1,4 +1,5 @@
 import SwiftUI
+import Photos
 
 // MARK: - 图标下载 ViewModel
 @MainActor
@@ -85,6 +86,25 @@ class IconDownloadViewModel: ObservableObject {
 
     // MARK: - 保存图标到相册
     func saveIconToPhotoAlbum(_ image: UIImage) {
+        let status = PHPhotoLibrary.authorizationStatus(for: .addOnly)
+        switch status {
+        case .notDetermined:
+            PHPhotoLibrary.requestAuthorization(for: .addOnly) { newStatus in
+                if newStatus == .authorized || newStatus == .limited {
+                    DispatchQueue.main.async {
+                        UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
+                        Haptic.success()
+                    }
+                }
+            }
+            return
+        case .denied, .restricted:
+            Haptic.error()
+            return
+        case .authorized, .limited:
+            break
+        @unknown default: return
+        }
         Haptic.light()
         UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
         Haptic.success()

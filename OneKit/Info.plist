@@ -38,5 +38,7 @@
     </array>
     <key>UIViewControllerBasedStatusBarAppearance</key>
     <true/>
+    <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>OneKit 需要访问相册来保存图标到您的照片库</string>
 </dict>
 </plist>

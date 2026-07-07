@@ -1,4 +1,5 @@
 import SwiftUI
+import Photos
 
 // MARK: - 图标预览视图
 struct IconPreviewView: View {
