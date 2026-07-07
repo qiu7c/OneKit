@@ -2,15 +2,12 @@ import SwiftUI
 
 final class QuickLaunchManager: ObservableObject {
     static let shared = QuickLaunchManager()
-
     @Published var visibleTools: [ToolItem] = []
-
     private let fileName = "ql_tools.json"
 
     private init() { load() }
 
     private var fileURL: URL {
-        // 用 Documents 目录，TrollStore 更新时保持不变
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(fileName)
     }
 
@@ -22,9 +19,8 @@ final class QuickLaunchManager: ObservableObject {
             visibleTools = allTools
             return
         }
-        let ordered = ids.compactMap { id in allTools.first { $0.id == id } }
-        let remaining = allTools.filter { t in !ids.contains(t.id) }
-        visibleTools = ordered + remaining
+        // 只显示保存的工具，不加回已隐藏的
+        visibleTools = ids.compactMap { id in allTools.first { $0.id == id } }
     }
 
     func toggleTool(_ tool: ToolItem) {
