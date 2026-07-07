@@ -20,16 +20,11 @@ struct IconDownloaderView: View {
         .background(Color.appBackground)
         .navigationTitle("图标下载").navigationBarTitleDisplayMode(.inline).toolbar(.hidden, for: .tabBar)
         .searchable(text: $viewModel.searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索 App 名称...")
-        .onSubmit(of: .search) { Task { await viewModel.search() } }
+        .onSubmit(of: .search) { Task { if await viewModel.search() { showErrorPage = true } } }
         .onChange(of: viewModel.searchText) { v in if v.isEmpty { viewModel.clearResults() } }
-        .onChange(of: viewModel.showError) { v in if v { showErrorPage = true } }
-        .sheet(isPresented: $showDetail) { if let app = selectedApp { IconPreviewView(app: app, viewModel: viewModel) } }
+        .fullScreenCover(isPresented: $showDetail) { IconPreviewView(app: selectedApp ?? ITunesApp(trackId: 0, trackName: "", artistName: "", artworkUrl60: "", artworkUrl100: "", primaryGenreName: ""), viewModel: viewModel) }
         .fullScreenCover(isPresented: $showErrorPage) {
-            ErrorPageView(message: viewModel.errorMessage) {
-                showErrorPage = false
-                viewModel.showError = false
-                Task { await viewModel.search() }
-            }
+            ErrorPageView(message: viewModel.errorMessage) { showErrorPage = false; Task { if await viewModel.search() { showErrorPage = true } } }
         }
     }
 
@@ -56,24 +51,19 @@ struct ErrorPageView: View {
     @Environment(\.dismiss) var dismiss
     let message: String?
     let onRetry: () -> Void
-
     var body: some View {
         NavigationStack {
             VStack(spacing: 20) {
                 Spacer()
                 Image(systemName: "wifi.slash").font(.system(size: 60)).foregroundColor(.appSecondary.opacity(0.5))
                 Text("请求失败").font(.title2).fontWeight(.bold).foregroundColor(.appForeground)
-                Text(message?.isEmpty == false ? message! : "请检查网络连接后重试")
-                    .font(.body).foregroundColor(.appSecondary).multilineTextAlignment(.center).padding(.horizontal, 40)
+                Text(message?.isEmpty == false ? message! : "请检查网络连接后重试").font(.body).foregroundColor(.appSecondary).multilineTextAlignment(.center).padding(.horizontal, 40)
                 Spacer()
                 Button { dismiss(); onRetry() } label: {
-                    Text("重试").fontWeight(.semibold).foregroundColor(.white)
-                        .frame(maxWidth: .infinity).frame(height: 50)
-                        .background(Color.appForeground).clipShape(RoundedRectangle(cornerRadius: 12)).padding(.horizontal, 40)
+                    Text("重试").fontWeight(.semibold).foregroundColor(.white).frame(maxWidth: .infinity).frame(height: 50).background(Color.appForeground).clipShape(RoundedRectangle(cornerRadius: 12)).padding(.horizontal, 40)
                 }
                 Button { dismiss() } label: { Text("取消").foregroundColor(.appSecondary).padding(.bottom, 20) }
-            }
-            .background(Color.appBackground)
+            }.background(Color.appBackground)
         }
     }
 }

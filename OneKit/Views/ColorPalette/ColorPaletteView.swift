@@ -4,6 +4,7 @@ import PhotosUI
 struct ColorPaletteView: View {
     @StateObject private var viewModel = ColorPaletteViewModel()
     @State private var showCopied = false
+    @State private var showCopiedRGB = false
     @State private var showImageFlow = false
 
     var body: some View {
@@ -73,7 +74,9 @@ struct ColorPaletteView: View {
             Button { viewModel.copyHex(viewModel.selectedColor); showCopied = true; DispatchQueue.main.asyncAfter(deadline: .now()+1.5) { showCopied = false } } label: {
                 HStack(spacing: 6) { Image(systemName: showCopied ? "checkmark" : "doc.on.doc"); Text(showCopied ? "已复制" : "复制 HEX") }.font(.subheadline).fontWeight(.medium).frame(maxWidth: .infinity).frame(height: 40).foregroundColor(.white).background(Color.appForeground).clipShape(RoundedRectangle(cornerRadius: 10))
             }
-            Button { viewModel.copyRGB(viewModel.selectedColor) } label: { (Text("复制 RGB")).font(.subheadline).fontWeight(.medium).frame(maxWidth: .infinity).frame(height: 40).foregroundColor(.appForeground).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 10)) }
+            Button { viewModel.copyRGB(viewModel.selectedColor); showCopiedRGB = true; DispatchQueue.main.asyncAfter(deadline: .now()+1.5) { showCopiedRGB = false } } label: {
+                HStack(spacing: 6) { Image(systemName: showCopiedRGB ? "checkmark" : "doc.on.doc"); Text(showCopiedRGB ? "已复制" : "复制 RGB") }.font(.subheadline).fontWeight(.medium).frame(maxWidth: .infinity).frame(height: 40).foregroundColor(.appForeground).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 10))
+            }
             Button { withAnimation { viewModel.saveCurrentColor() } } label: { Image(systemName: "heart").font(.body).foregroundColor(.appForeground).frame(width: 40, height: 40).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 10)) }
         }
     }
@@ -103,29 +106,18 @@ struct ColorPaletteView: View {
     }
 }
 
-// MARK: - 一体化取色流程
 struct ImagePickFlowView: View {
     @Environment(\.dismiss) private var dismiss
     let onComplete: (Color?) -> Void
     @State private var pickedImage: UIImage?
     @State private var showPHPicker = true
-
     var body: some View {
         NavigationStack {
             if let img = pickedImage {
-                ImageColorPickerView(image: img) { color in
-                    onComplete(color)
-                    dismiss()
-                }
+                ImageColorPickerView(image: img) { color in onComplete(color); dismiss() }
             } else {
-                Color.clear
-                    .onAppear { showPHPicker = true }
-                    .sheet(isPresented: $showPHPicker) {
-                        PhotoPickerView { img in
-                            pickedImage = img
-                            showPHPicker = false
-                        }
-                    }
+                Color.clear.onAppear { showPHPicker = true }
+                    .sheet(isPresented: $showPHPicker) { PhotoPickerView { img in pickedImage = img; showPHPicker = false } }
             }
         }
     }

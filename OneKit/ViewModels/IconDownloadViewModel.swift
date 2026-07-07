@@ -5,26 +5,24 @@ import Photos
 class IconDownloadViewModel: ObservableObject {
     @Published var searchText: String = ""
     @Published var searchResults: [ITunesApp] = []
-    @Published var selectedApp: ITunesApp?
     @Published var isSearching = false
     @Published var errorMessage: String?
-    @Published var showError = false
     @Published var downloadedIcons: [Int: [IconSize: UIImage]] = [:]
 
     private let service = AppStoreService.shared
     private let cacheManager = IconCacheManager.shared
 
-    func search() async {
-        guard !searchText.trimmingCharacters(in: .whitespaces).isEmpty else { searchResults = []; return }
+    func search() async -> Bool {
+        guard !searchText.trimmingCharacters(in: .whitespaces).isEmpty else { searchResults = []; return false }
         isSearching = true; errorMessage = nil
         do {
             searchResults = try await service.searchApps(query: searchText)
+            isSearching = false; return false
         } catch {
             errorMessage = error.localizedDescription
             if errorMessage?.isEmpty != false { errorMessage = "请求失败" }
-            showError = true
+            isSearching = false; return true
         }
-        isSearching = false
     }
 
     func downloadIcon(for app: ITunesApp, size: IconSize) async -> UIImage? {
