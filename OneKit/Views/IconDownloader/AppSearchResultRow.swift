@@ -105,9 +105,8 @@ struct AppSearchResultRow: View {
             }
             do {
                 let data = try await URLSession.shared.data(from: url).0
-                let image = UIImage(data: data)
-                iconImage = image
-                if let image {
+                if let img = UIImage(data: data) {
+                    iconImage = img
                     await IconCacheManager.shared.cacheIcon(url: url, data: data)
                 }
             } catch {}

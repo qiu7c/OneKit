@@ -58,10 +58,3 @@ enum Haptic {
     static func success() { UINotificationFeedbackGenerator().notificationOccurred(.success) }
     static func error() { UINotificationFeedbackGenerator().notificationOccurred(.error) }
 }
-
-// MARK: - 导航扩展 (iOS 16+)
-extension NavigationLink where Destination == Never {
-    public init(title: String, @ViewBuilder label: () -> Label) {
-        self.init(destination: EmptyView(), label: label)
-    }
-}
