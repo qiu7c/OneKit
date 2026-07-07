@@ -7,7 +7,6 @@ struct IconPreviewView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var previewImage: UIImage?
-    @State private var selectedSize: IconSize = .size1024
     @State private var isDownloading = false
     @State private var showSavedAlert = false
 
@@ -27,35 +26,15 @@ struct IconPreviewView: View {
                 Text(app.trackName).font(.title2).fontWeight(.bold).foregroundColor(.appForeground)
                 Text(app.artistName).font(.body).foregroundColor(.appSecondary)
 
-                Picker("尺寸", selection: $selectedSize) {
-                    ForEach(IconSize.allCases) { size in Text(size.rawValue).tag(size) }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
+                Spacer()
 
                 VStack(spacing: 10) {
-                    Button {
-                        Task {
-                            isDownloading = true
-                            if let img = await viewModel.downloadIcon(for: app, size: selectedSize) {
-                                previewImage = img; Haptic.success()
-                            }
-                            isDownloading = false
-                        }
-                    } label: {
-                        HStack {
-                            if isDownloading { ProgressView().tint(.white) } else { Image(systemName: "arrow.down.circle") }
-                            Text("下载 \(selectedSize.rawValue)")
-                        }.modernButtonStyle()
-                    }
-                    .disabled(isDownloading)
-
                     Button {
                         Task { await viewModel.downloadAllSizes(for: app) }
                     } label: {
                         HStack { Image(systemName: "arrow.down.to.line"); Text("下载全部尺寸") }
-                            .font(.headline).fontWeight(.semibold).foregroundColor(.appForeground)
-                            .frame(maxWidth: .infinity).frame(height: 50).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 12))
+                            .font(.headline).fontWeight(.semibold).foregroundColor(.white).frame(maxWidth: .infinity).frame(height: 50)
+                            .background(Color.appForeground).clipShape(RoundedRectangle(cornerRadius: 12))
                     }
 
                     if previewImage != nil {
@@ -63,17 +42,15 @@ struct IconPreviewView: View {
                             let status = PHPhotoLibrary.authorizationStatus(for: .addOnly)
                             switch status {
                             case .notDetermined:
-                                PHPhotoLibrary.requestAuthorization(for: .addOnly) { s in
-                                    if s == .authorized || s == .limited { saveImage() }
-                                }
+                                PHPhotoLibrary.requestAuthorization(for: .addOnly) { s in if s == .authorized || s == .limited { saveImage() } }
                             case .denied, .restricted: Haptic.error()
                             case .authorized, .limited: saveImage()
                             @unknown default: return
                             }
                         } label: {
                             HStack { Image(systemName: "photo.badge.arrow.down"); Text("保存到相册") }
-                                .font(.headline).fontWeight(.semibold).foregroundColor(.appForeground)
-                                .frame(maxWidth: .infinity).frame(height: 50).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 12))
+                                .font(.headline).fontWeight(.semibold).foregroundColor(.appForeground).frame(maxWidth: .infinity).frame(height: 50)
+                                .background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 12))
                         }
                     }
                 }
@@ -84,7 +61,13 @@ struct IconPreviewView: View {
             .background(Color.appBackground)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .navigationBarTrailing) { Button("关闭") { dismiss() } } }
-            .alert("已保存", isPresented: $showSavedAlert) { Button("确定", role: .cancel) {} }
+            .alert("已保存到相册", isPresented: $showSavedAlert) { Button("确定", role: .cancel) {} }
+            .task {
+                // 自动下载 1024 尺寸预览
+                if previewImage == nil {
+                    previewImage = await viewModel.downloadIcon(for: app, size: .size1024)
+                }
+            }
         }
     }
 
