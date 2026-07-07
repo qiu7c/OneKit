@@ -41,7 +41,7 @@ struct IconDownloaderView: View {
         .alert("提示", isPresented: $viewModel.showError) {
             Button("确定", role: .cancel) {}
         } message: {
-            Text(viewModel.errorMessage ?? "未知错误")
+            Text(viewModel.errorMessage?.isEmpty == false ? viewModel.errorMessage! : "请求失败，请检查网络连接")
         }
         .sheet(isPresented: $showDetail) {
             if let app = selectedApp {
