@@ -6,14 +6,19 @@ actor SFSymbolService {
 
     private init() {}
 
+    /// 完整符号列表
+    private var allSymbols: [SFSymbolItem] {
+        SFSymbolItem.allComprehensiveSymbols
+    }
+
     /// 搜索 SF Symbols
     func searchSymbols(query: String) -> [SFSymbolItem] {
         guard !query.trimmingCharacters(in: .whitespaces).isEmpty else {
-            return SFSymbolItem.popularSymbols
+            return allSymbols
         }
 
         let lowercased = query.lowercased()
-        return SFSymbolItem.popularSymbols.filter { item in
+        return allSymbols.filter { item in
             item.name.lowercased().contains(lowercased) ||
             item.id.lowercased().contains(lowercased) ||
             item.keywords.contains { $0.lowercased().contains(lowercased) }
@@ -23,8 +28,8 @@ actor SFSymbolService {
     /// 按分类获取 Symbols
     func symbols(for category: SFSymbolCategory) -> [SFSymbolItem] {
         if category == .all {
-            return SFSymbolItem.popularSymbols
+            return allSymbols
         }
-        return SFSymbolItem.popularSymbols.filter { $0.category == category }
+        return allSymbols.filter { $0.category == category }
     }
 }

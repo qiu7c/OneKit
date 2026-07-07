@@ -35,7 +35,7 @@ enum ToolCategory: String, CaseIterable, Identifiable, Codable {
 }
 
 // MARK: - 工具项模型
-struct ToolItem: Identifiable, Codable {
+struct ToolItem: Identifiable, Codable, Hashable {
     let id: String
     let title: String
     let subtitle: String
