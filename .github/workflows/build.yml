@@ -29,18 +29,22 @@ jobs:
           xcodebuild build \
             -project ${{ env.PROJECT_NAME }}.xcodeproj \
             -scheme ${{ env.PROJECT_NAME }} \
-            -sdk iphoneos -configuration Release -arch arm64 \
+            -destination generic/platform=iOS \
+            -configuration Release -arch arm64 \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY=- \
             CODE_SIGNING_REQUIRED=NO \
             BUILD_DIR=./build 2>&1 | tee build.log | tail -20
           echo "=== BUILD EXIT: $? ==="
+          echo "=== Check build output ==="
+          ls -la build/ 2>/dev/null || echo "No build dir"
+          find build -type d -maxdepth 4 2>/dev/null | head -20
 
       - name: 🔍 Find .app & Verifiy Binary
         id: locate
         run: |
-          APP=$(find . -name "*.app" -type d -path "*/Release-iphoneos/*" | head -1)
-          [ -z "$APP" ] && APP=$(find . -name "*.app" -type d -maxdepth 5 | head -1)
+          APP=$(find . -name "*.app" -type d -maxdepth 5 | head -1)
+          [ -z "$APP" ] && APP=$(find build -type d -name "*.app" | head -1)
           echo "app_path=$APP" >> $GITHUB_OUTPUT
 
           if [ -z "$APP" ]; then
