@@ -22,17 +22,6 @@ enum ToolCategory: String, CaseIterable, Identifiable, Codable {
         }
     }
 
-    var gradient: LinearGradient {
-        switch self {
-        case .icons: return .cardGradient1
-        case .design: return .cardGradient2
-        case .developer: return .cardGradient3
-        case .utility: return .cardGradient1
-        case .media: return .cardGradient2
-        case .network: return .cardGradient3
-        }
-    }
-
     var tint: Color {
         switch self {
         case .icons: return Color(hex: "#6366F1")
