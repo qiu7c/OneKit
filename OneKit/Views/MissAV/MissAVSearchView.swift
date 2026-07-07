@@ -84,7 +84,10 @@ struct MissAVSearchView: View {
         }
         .sheet(isPresented: $showDebug) { debugView }
         .onSubmit(of: .search) { Task { await performSearch() } }
-        .onAppear { vm.attachToWindow() }
+        .onAppear {
+            vm.ensureWebView()
+            vm.attachToWindow()
+        }
         .onDisappear { vm.detachFromWindow() }
     }
 

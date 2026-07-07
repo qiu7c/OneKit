@@ -144,6 +144,14 @@ struct MissAVDetailView: View {
         .navigationTitle("详情")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button { showDebug = true } label: {
+                    Image(systemName: "ladybug").font(.subheadline).foregroundColor(.appSecondary)
+                }
+            }
+        }
+        .sheet(isPresented: $showDebug) { debugView }
         .fullScreenCover(isPresented: $showPlayer) {
             if let url = m3u8URL {
                 MissAVPlayerView(m3u8URL: url, referer: video.detailURL)
@@ -165,6 +173,41 @@ struct MissAVDetailView: View {
             } catch {
                 self.errorMsg = error.localizedDescription
                 self.isLoading = false
+            }
+        }
+    }
+
+    // MARK: - 调试面板
+    private var debugView: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(vm.debugLog.reversed(), id: \.self) { line in
+                        Text(line)
+                            .font(.system(size: 9, design: .monospaced))
+                            .foregroundColor(.green)
+                            .lineLimit(nil)
+                            .textSelection(.enabled)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 4)
+            }
+            .background(Color.black)
+            .navigationTitle("提取日志")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("关闭") { showDebug = false }
+                }
+                ToolbarItem(placement: .navigationBarLeading) {
+                    HStack(spacing: 4) {
+                        Button("清空") { vm.debugLog.removeAll() }
+                        Button("复制") { UIPasteboard.general.string = vm.debugLog.joined(separator: "\n"); Haptic.success() }
+                    }
+                }
             }
         }
     }
