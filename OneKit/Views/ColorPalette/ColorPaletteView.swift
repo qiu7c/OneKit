@@ -34,9 +34,7 @@ struct ColorPaletteView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("图片取色").font(.headline).fontWeight(.semibold).foregroundColor(.appForeground)
             Button { showImageFlow = true } label: {
-                HStack { Image(systemName: "photo.on.rectangle"); Text("从照片取色") }
-                    .font(.subheadline).fontWeight(.medium).frame(maxWidth: .infinity).frame(height: 44)
-                    .foregroundColor(.appForeground).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 10))
+                HStack { Image(systemName: "photo.on.rectangle"); Text("从照片取色") }.font(.subheadline).fontWeight(.medium).frame(maxWidth: .infinity).frame(height: 44).foregroundColor(.appForeground).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 10))
             }
         }
     }
@@ -66,13 +64,13 @@ struct ColorPaletteView: View {
     private var hexInputSection: some View {
         HStack(spacing: 10) {
             TextField("输入 Hex 颜色", text: $viewModel.hexInput).font(.system(.body, design: .monospaced)).textFieldStyle(.plain).padding(12).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 10))
-            Button { viewModel.applyHexInput(); Haptic.medium() } label: { Text("应用").fontWeight(.semibold).foregroundColor(.white).padding(.horizontal, 20).padding(.vertical, 12).background(Color.appForeground).clipShape(RoundedRectangle(cornerRadius: 10)) }
+            Button { viewModel.applyHexInput(); Haptic.medium() } label: { Text("应用").fontWeight(.semibold).foregroundColor(Color.appBackground).padding(.horizontal, 20).padding(.vertical, 12).background(Color.appForeground).clipShape(RoundedRectangle(cornerRadius: 10)) }
         }
     }
     private var actionButtonsSection: some View {
         HStack(spacing: 10) {
             Button { viewModel.copyHex(viewModel.selectedColor); showCopied = true; DispatchQueue.main.asyncAfter(deadline: .now()+1.5) { showCopied = false } } label: {
-                HStack(spacing: 6) { Image(systemName: showCopied ? "checkmark" : "doc.on.doc"); Text(showCopied ? "已复制" : "复制 HEX") }.font(.subheadline).fontWeight(.medium).frame(maxWidth: .infinity).frame(height: 40).foregroundColor(.white).background(Color.appForeground).clipShape(RoundedRectangle(cornerRadius: 10))
+                HStack(spacing: 6) { Image(systemName: showCopied ? "checkmark" : "doc.on.doc"); Text(showCopied ? "已复制" : "复制 HEX") }.font(.subheadline).fontWeight(.medium).frame(maxWidth: .infinity).frame(height: 40).foregroundColor(Color.appBackground).background(Color.appForeground).clipShape(RoundedRectangle(cornerRadius: 10))
             }
             Button { viewModel.copyRGB(viewModel.selectedColor); showCopiedRGB = true; DispatchQueue.main.asyncAfter(deadline: .now()+1.5) { showCopiedRGB = false } } label: {
                 HStack(spacing: 6) { Image(systemName: showCopiedRGB ? "checkmark" : "doc.on.doc"); Text(showCopiedRGB ? "已复制" : "复制 RGB") }.font(.subheadline).fontWeight(.medium).frame(maxWidth: .infinity).frame(height: 40).foregroundColor(.appForeground).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 10))
@@ -107,27 +105,19 @@ struct ColorPaletteView: View {
 }
 
 struct ImagePickFlowView: View {
-    @Environment(\.dismiss) private var dismiss
-    let onComplete: (Color?) -> Void
-    @State private var pickedImage: UIImage?
-    @State private var showPHPicker = true
+    @Environment(\.dismiss) private var dismiss; let onComplete: (Color?) -> Void
+    @State private var pickedImage: UIImage?; @State private var showPHPicker = true
     var body: some View {
         NavigationStack {
-            if let img = pickedImage {
-                ImageColorPickerView(image: img) { color in onComplete(color); dismiss() }
-            } else {
-                Color.clear.onAppear { showPHPicker = true }
-                    .sheet(isPresented: $showPHPicker) { PhotoPickerView { img in pickedImage = img; showPHPicker = false } }
-            }
+            if let img = pickedImage { ImageColorPickerView(image: img) { c in onComplete(c); dismiss() } }
+            else { Color.clear.onAppear { showPHPicker = true }.sheet(isPresented: $showPHPicker) { PhotoPickerView { img in pickedImage = img; showPHPicker = false } } }
         }
     }
 }
-
 struct PhotoPickerView: UIViewControllerRepresentable {
     let onPick: (UIImage) -> Void
     func makeUIViewController(context: Context) -> PHPickerViewController {
-        var c = PHPickerConfiguration(); c.filter = .images; c.selectionLimit = 1
-        let p = PHPickerViewController(configuration: c); p.delegate = context.coordinator; return p
+        var c = PHPickerConfiguration(); c.filter = .images; c.selectionLimit = 1; let p = PHPickerViewController(configuration: c); p.delegate = context.coordinator; return p
     }
     func updateUIViewController(_: PHPickerViewController, context: Context) {}
     func makeCoordinator() -> Coordinator { Coordinator(onPick: onPick) }
@@ -137,9 +127,7 @@ struct PhotoPickerView: UIViewControllerRepresentable {
         func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
             picker.dismiss(animated: true)
             guard let result = results.first, result.itemProvider.canLoadObject(ofClass: UIImage.self) else { return }
-            result.itemProvider.loadObject(ofClass: UIImage.self) { img, _ in
-                if let image = img as? UIImage { DispatchQueue.main.async { self.onPick(image) } }
-            }
+            result.itemProvider.loadObject(ofClass: UIImage.self) { img, _ in if let image = img as? UIImage { DispatchQueue.main.async { self.onPick(image) } } }
         }
     }
 }

@@ -8,11 +8,7 @@ struct IconDownloaderView: View {
 
     var body: some View {
         ZStack {
-            if viewModel.searchResults.isEmpty && !viewModel.isSearching {
-                emptyStateView
-            } else {
-                resultsList
-            }
+            if viewModel.searchResults.isEmpty && !viewModel.isSearching { emptyStateView } else { resultsList }
             if viewModel.isSearching {
                 ProgressView().scaleEffect(1.2).frame(maxWidth: .infinity, maxHeight: .infinity).background(Color.appBackground.opacity(0.8))
             }
@@ -23,9 +19,7 @@ struct IconDownloaderView: View {
         .onSubmit(of: .search) { Task { if await viewModel.search() { showErrorPage = true } } }
         .onChange(of: viewModel.searchText) { v in if v.isEmpty { viewModel.clearResults() } }
         .fullScreenCover(isPresented: $showDetail) { IconPreviewView(app: selectedApp ?? ITunesApp(trackId: 0, trackName: "", artistName: "", artworkUrl60: "", artworkUrl100: "", primaryGenreName: ""), viewModel: viewModel) }
-        .fullScreenCover(isPresented: $showErrorPage) {
-            ErrorPageView(message: viewModel.errorMessage) { showErrorPage = false; Task { if await viewModel.search() { showErrorPage = true } } }
-        }
+        .fullScreenCover(isPresented: $showErrorPage) { ErrorPageView(message: viewModel.errorMessage) { showErrorPage = false; Task { if await viewModel.search() { showErrorPage = true } } } }
     }
 
     private var emptyStateView: some View {
@@ -60,7 +54,7 @@ struct ErrorPageView: View {
                 Text(message?.isEmpty == false ? message! : "请检查网络连接后重试").font(.body).foregroundColor(.appSecondary).multilineTextAlignment(.center).padding(.horizontal, 40)
                 Spacer()
                 Button { dismiss(); onRetry() } label: {
-                    Text("重试").fontWeight(.semibold).foregroundColor(.white).frame(maxWidth: .infinity).frame(height: 50).background(Color.appForeground).clipShape(RoundedRectangle(cornerRadius: 12)).padding(.horizontal, 40)
+                    Text("重试").fontWeight(.semibold).foregroundColor(Color.appBackground).frame(maxWidth: .infinity).frame(height: 50).background(Color.appForeground).clipShape(RoundedRectangle(cornerRadius: 12)).padding(.horizontal, 40)
                 }
                 Button { dismiss() } label: { Text("取消").foregroundColor(.appSecondary).padding(.bottom, 20) }
             }.background(Color.appBackground)
