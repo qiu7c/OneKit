@@ -48,7 +48,6 @@ struct HomeView: View {
                 Text("三角洲今日密码").font(.subheadline).fontWeight(.semibold).foregroundColor(.appForeground)
                 Spacer()
                 if pwdLoading { ProgressView().scaleEffect(0.7) }
-                Button { showPwd = false } label: { Image(systemName: "xmark").font(.caption2).foregroundColor(.appSecondary).frame(width: 24, height: 24).background(Color.appCard).clipShape(Circle()) }
             }
             if let d = pwdData {
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
