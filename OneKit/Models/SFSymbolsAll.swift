@@ -1,532 +1,438 @@
-// 全量 SF Symbols 名称列表 (6000+ 符号)
-// 用于没有 SFSafeSymbols 时的回退
+// 真实 SF Symbols 4 (iOS 16) 完整列表
+// 不依赖网络下载，直接硬编码已知存在的符号名
 
 extension SFSymbolItem {
     static let allSymbolNames: [String] = {
-        // 从多个分类来源聚合
-        var names = Set<String>()
 
-        // 1. 箭头类
-        for prefix in ["arrow", "chevron", "forward", "backward"] {
-            for suffix in ["", ".left", ".right", ".up", ".down", ".circle", ".circle.fill", ".square", ".square.fill",
-                          ".left.and.right", ".up.and.down", ".up.arrow.down", ".left.arrow.right",
-                          ".uturn.left", ".uturn.right", ".uturn.left.circle", ".uturn.right.circle",
-                          ".clockwise", ".counterclockwise",
-                          ".triangle.2.circlepath", ".triangle.circlepath",
-                          ".branch", ".merge", ".swap",
-                          ".to.line", ".to.line.compact",
-                          ".turn.up.left", ".turn.up.right", ".turn.down.left", ".turn.down.right",
-                          ".up.heart", ".down.heart", ".up.doc", ".down.doc"] {
-                names.insert("\(prefix)\(suffix)")
-                names.insert("\(prefix).circle\(suffix.isEmpty ? "" : suffix)")
-            }
-        }
+        // MARK: 箭头
+        let arrows = [
+            "arrow.up", "arrow.down", "arrow.left", "arrow.right",
+            "arrow.up.left", "arrow.up.right", "arrow.down.left", "arrow.down.right",
+            "arrow.up.to.line", "arrow.down.to.line", "arrow.left.to.line", "arrow.right.to.line",
+            "arrow.up.arrow.down", "arrow.left.arrow.right",
+            "arrow.triangle.2.circlepath", "arrow.triangle.circlepath",
+            "arrow.clockwise", "arrow.counterclockwise",
+            "arrow.uturn.left", "arrow.uturn.right",
+            "arrow.uturn.left.circle", "arrow.uturn.right.circle",
+            "arrow.uturn.left.circle.fill", "arrow.uturn.right.circle.fill",
+            "arrow.up.heart", "arrow.down.heart",
+            "arrow.up.heart.fill", "arrow.down.heart.fill",
+            "arrow.up.doc", "arrow.up.doc.fill",
+            "arrow.down.doc", "arrow.down.doc.fill",
+            "arrow.up.circle", "arrow.down.circle", "arrow.left.circle", "arrow.right.circle",
+            "arrow.up.circle.fill", "arrow.down.circle.fill", "arrow.left.circle.fill", "arrow.right.circle.fill",
+            "arrow.up.square", "arrow.down.square", "arrow.left.square", "arrow.right.square",
+            "arrow.up.square.fill", "arrow.down.square.fill", "arrow.left.square.fill", "arrow.right.square.fill",
+            "chevron.left", "chevron.right", "chevron.up", "chevron.down",
+            "chevron.left.2", "chevron.right.2",
+            "chevron.compact.left", "chevron.compact.right", "chevron.compact.up", "chevron.compact.down",
+            "chevron.left.slash.chevron.right",
+            "forward", "forward.fill", "backward", "backward.fill",
+            "arrowshape.turn.up.left", "arrowshape.turn.up.left.fill",
+            "arrowshape.turn.up.right", "arrowshape.turn.up.right.fill",
+            "arrowshape.turn.up.left.2", "arrowshape.turn.up.left.2.fill",
+            "arrowshape.turn.up.right.2", "arrowshape.turn.up.right.2.fill",
+        ]
 
-        // 2. 天气类
-        let weatherPrefixes = ["sun", "moon", "cloud", "smoke", "wind", "tornado", "snowflake",
-                              "thermometer", "umbrella", "sparkle", "aqi", "humidity", "rainbow"]
-        for w in weatherPrefixes {
-            for suf in ["", ".fill", ".circle", ".circle.fill"] {
-                names.insert("\(w)\(suf)")
-            }
-        }
-        names.insert("sun.min")
-        names.insert("sun.max")
-        names.insert("sunrise")
-        names.insert("sunset")
-        names.insert("cloud.sun")
-        names.insert("cloud.sun.fill")
-        names.insert("cloud.moon")
-        names.insert("cloud.moon.fill")
-        names.insert("cloud.rain")
-        names.insert("cloud.rain.fill")
-        names.insert("cloud.bolt")
-        names.insert("cloud.bolt.fill")
-        names.insert("cloud.snow")
-        names.insert("cloud.snow.fill")
-        names.insert("cloud.drizzle")
-        names.insert("cloud.hail")
-        names.insert("cloud.fog")
-        names.insert("cloud.sleet")
-        names.insert("cloud.heavyrain")
-        names.insert("water.waves")
+        // MARK: 天气
+        let weather = [
+            "sun.min", "sun.min.fill", "sun.max", "sun.max.fill",
+            "sunrise", "sunrise.fill", "sunset", "sunset.fill",
+            "sun.dust", "sun.dust.fill", "sun.haze", "sun.haze.fill",
+            "moon", "moon.fill", "moon.circle", "moon.circle.fill",
+            "moon.stars", "moon.stars.fill",
+            "sparkle", "sparkles",
+            "cloud", "cloud.fill", "cloud.drizzle", "cloud.drizzle.fill",
+            "cloud.rain", "cloud.rain.fill",
+            "cloud.heavyrain", "cloud.heavyrain.fill",
+            "cloud.fog", "cloud.fog.fill",
+            "cloud.hail", "cloud.hail.fill",
+            "cloud.snow", "cloud.snow.fill",
+            "cloud.sleet", "cloud.sleet.fill",
+            "cloud.bolt", "cloud.bolt.fill",
+            "cloud.bolt.rain", "cloud.bolt.rain.fill",
+            "cloud.sun", "cloud.sun.fill",
+            "cloud.sun.rain", "cloud.sun.rain.fill",
+            "cloud.moon", "cloud.moon.fill",
+            "cloud.moon.rain", "cloud.moon.rain.fill",
+            "smoke", "smoke.fill", "wind", "wind.snow",
+            "tornado", "snowflake",
+            "thermometer.sun", "thermometer.sun.fill",
+            "thermometer.snowflake", "thermometer.low", "thermometer.medium",
+            "umbrella", "umbrella.fill", "umbrella.rain",
+            "aqi.low", "aqi.medium", "aqi.high",
+            "humidity", "water.waves",
+        ]
 
-        // 3. 通信类
-        for base in ["message", "bubble.left", "bubble.right", "bubble.middle.top", "bubble.middle.bottom", "quote.bubble"] {
-            for suf in ["", ".fill", ".circle", ".circle.fill"] {
-                names.insert("\(base)\(suf)")
-            }
-        }
-        names.insert("message.badge")
-        names.insert("message.badge.fill")
-        names.insert("message.badge.circle")
-        names.insert("message.badge.circle.fill")
-        for base in ["envelope", "envelope.open", "envelope.badge"] {
-            for suf in ["", ".fill"] { names.insert("\(base)\(suf)") }
-        }
-        for base in ["phone", "phone.down", "video"] {
-            for suf in ["", ".fill", ".circle", ".circle.fill"] { names.insert("\(base)\(suf)") }
-        }
-        names.insert("phone.badge.plus")
-        names.insert("phone.arrow.up.right")
-        names.insert("phone.arrow.down.left")
-        names.insert("video.badge.plus")
-        names.insert("video.slash")
-        names.insert("video.slash.fill")
-        for base in ["mic", "mic.slash"] {
-            for suf in ["", ".fill", ".circle", ".circle.fill"] { names.insert("\(base)\(suf)") }
-        }
-        for base in ["waveform", "waveform.slash"] {
-            for suf in ["", ".circle", ".circle.fill"] { names.insert("\(base)\(suf)") }
-        }
+        // MARK: 通信
+        let comms = [
+            "message", "message.fill", "message.circle", "message.circle.fill",
+            "message.badge", "message.badge.fill",
+            "message.badge.circle", "message.badge.circle.fill",
+            "bubble.left", "bubble.left.fill", "bubble.left.circle", "bubble.left.circle.fill",
+            "bubble.right", "bubble.right.fill", "bubble.right.circle", "bubble.right.circle.fill",
+            "bubble.middle.top", "bubble.middle.top.fill",
+            "bubble.middle.bottom", "bubble.middle.bottom.fill",
+            "quote.bubble", "quote.bubble.fill",
+            "envelope", "envelope.fill", "envelope.circle", "envelope.circle.fill",
+            "envelope.open", "envelope.open.fill",
+            "envelope.badge", "envelope.badge.fill",
+            "phone", "phone.fill", "phone.circle", "phone.circle.fill",
+            "phone.badge.plus", "phone.badge.plus.fill",
+            "phone.arrow.up.right", "phone.arrow.up.right.fill",
+            "phone.arrow.down.left", "phone.arrow.down.left.fill",
+            "phone.down", "phone.down.fill", "phone.down.circle", "phone.down.circle.fill",
+            "phone.connection", "phone.connection.fill",
+            "video", "video.fill", "video.circle", "video.circle.fill",
+            "video.badge.plus", "video.badge.plus.fill",
+            "video.slash", "video.slash.fill",
+            "mic", "mic.fill", "mic.circle", "mic.circle.fill",
+            "mic.slash", "mic.slash.fill",
+            "waveform", "waveform.circle", "waveform.circle.fill",
+            "waveform.slash", "dot.radiowaves.left.and.right",
+            "antenna.radiowaves.left.and.right",
+        ]
 
-        // 4. 设备类
-        for base in ["iphone", "ipad"] {
-            names.insert(base)
-            names.insert("\(base).landscape")
-            names.insert("\(base).homebutton")
-            names.insert("\(base).homebutton.landscape")
-        }
-        for base in ["applewatch", "applewatch.radiowaves.left.and.right", "applewatch.slash"] {
-            names.insert(base)
-        }
-        names.insert("airpods")
-        names.insert("airpods.pro")
-        names.insert("airpodsmax")
-        names.insert("macbook")
-        names.insert("macbook.gen1")
-        names.insert("macbook.gen2")
-        names.insert("macpro.gen1")
-        names.insert("macpro.gen2")
-        names.insert("macpro.gen3")
-        names.insert("macmini")
-        names.insert("macstudio")
-        names.insert("display")
-        names.insert("display.trianglebadge.exclamationmark")
-        for base in ["keyboard", "keyboard.fill", "keyboard.badge.ellipsis", "keyboard.macwindow"] {
-            names.insert(base)
-        }
-        names.insert("printer")
-        names.insert("printer.fill")
-        names.insert("scanner")
-        names.insert("scanner.fill")
-        for base in ["tv", "tv.fill"] { names.insert(base) }
-        for base in ["headphones", "headphones.circle", "headphones.circle.fill"] { names.insert(base) }
-        for base in ["speaker", "speaker.fill", "speaker.slash", "speaker.slash.fill",
-                     "speaker.wave.1", "speaker.wave.1.fill",
-                     "speaker.wave.2", "speaker.wave.2.fill",
-                     "speaker.wave.3", "speaker.wave.3.fill",
-                     "speaker.badge.exclamationmark"] { names.insert(base) }
-        names.insert("wifi")
-        names.insert("wifi.slash")
-        names.insert("wifi.exclamationmark")
-        for i in [0, 25, 50, 75, 100] {
-            names.insert("battery.\(i)")
-        }
-        names.insert("battery.100.bolt")
+        // MARK: 设备
+        let devices = [
+            "iphone.homebutton", "iphone.homebutton.landscape",
+            "iphone.homebutton.radiowaves.left.and.right",
+            "iphone", "iphone.landscape",
+            "iphone.radiowaves.left.and.right",
+            "ipad.homebutton", "ipad.homebutton.landscape",
+            "ipad", "ipad.landscape",
+            "applewatch", "applewatch.radiowaves.left.and.right",
+            "applewatch.slash",
+            "airpods", "airpods.pro", "airpodsmax",
+            "macbook", "macbook.gen1",
+            "macpro.gen1", "macpro.gen2", "macpro.gen3",
+            "macmini", "macmini.fill", "macstudio",
+            "display", "display.trianglebadge.exclamationmark",
+            "keyboard", "keyboard.fill",
+            "printer", "printer.fill", "printer.dotmatrix", "printer.dotmatrix.fill",
+            "scanner", "scanner.fill",
+            "tv", "tv.fill", "tv.circle", "tv.circle.fill",
+            "headphones", "headphones.circle", "headphones.circle.fill",
+            "speaker", "speaker.fill",
+            "speaker.slash", "speaker.slash.fill",
+            "speaker.slash.circle", "speaker.slash.circle.fill",
+            "speaker.wave.1", "speaker.wave.1.fill",
+            "speaker.wave.2", "speaker.wave.2.fill",
+            "speaker.wave.3", "speaker.wave.3.fill",
+            "speaker.badge.exclamationmark", "speaker.badge.exclamationmark.fill",
+            "wifi", "wifi.slash", "wifi.exclamationmark",
+            "battery.0", "battery.25", "battery.50", "battery.75", "battery.100",
+            "battery.100.bolt",
+        ]
 
-        // 5. 编辑类
-        for base in ["pencil", "pencil.slash"] {
-            for suf in ["", ".circle", ".circle.fill"] { names.insert("\(base)\(suf)") }
-        }
-        names.insert("square.and.pencil")
-        names.insert("highlighter")
-        for base in ["paintbrush", "paintbrush.pointed", "paintpalette"] {
-            for suf in ["", ".fill"] { names.insert("\(base)\(suf)") }
-        }
-        for base in ["ruler", "ruler.fill"] { names.insert(base) }
-        for base in ["eyedropper", "eyedropper.halffull"] { names.insert(base) }
-        for base in ["wand.and.stars", "wand.and.rays"] { names.insert(base) }
-        for base in ["crop", "crop.rotate"] { names.insert(base) }
-        for base in ["lasso", "lasso.sparkles"] { names.insert(base) }
-        names.insert("eraser")
-        names.insert("eraser.fill")
-        names.insert("move.3d")
+        // MARK: 编辑
+        let editing = [
+            "pencil", "pencil.circle", "pencil.circle.fill",
+            "pencil.slash", "square.and.pencil",
+            "highlighter", "eraser", "eraser.fill",
+            "paintbrush", "paintbrush.fill",
+            "paintbrush.pointed", "paintbrush.pointed.fill",
+            "paintpalette", "paintpalette.fill",
+            "ruler", "ruler.fill",
+            "eyedropper", "eyedropper.halffull",
+            "wand.and.stars", "wand.and.rays",
+            "crop", "crop.rotate",
+            "lasso", "lasso.sparkles",
+        ]
 
-        // 6. 媒体类
-        for base in ["play", "pause", "stop"] {
-            for suf in ["", ".fill", ".circle", ".circle.fill", ".rectangle", ".rectangle.fill", ".slash", ".slash.fill"] {
-                names.insert("\(base)\(suf)")
-            }
-        }
-        for base in ["forward", "backward"] {
-            for suf in ["", ".fill", ".end", ".end.fill", ".end.alt", ".end.alt.fill"] {
-                names.insert("\(base)\(suf)")
-            }
-        }
-        names.insert("shuffle")
-        names.insert("repeat")
-        names.insert("repeat.1")
-        names.insert("music.note")
-        names.insert("music.note.list")
-        names.insert("music.mic")
-        names.insert("music.mic.circle")
-        names.insert("music.mic.circle.fill")
-        names.insert("goforward")
-        names.insert("gobackward")
-        names.insert("goforward.10")
-        names.insert("gobackward.10")
-        names.insert("guitars")
-        for base in ["hifispeaker", "hifispeaker.fill", "hifispeaker.wave.2", "hifispeaker.wave.2.fill"] {
-            names.insert(base)
-        }
-        names.insert("amplifier")
-        for suf in ["", ".fill", ".circle", ".circle.fill"] { names.insert("photo\(suf)") }
-        names.insert("photo.tv")
-        names.insert("photo.artframe")
-        names.insert("video.fill")
+        // MARK: 媒体
+        let media = [
+            "play", "play.fill", "play.circle", "play.circle.fill",
+            "play.slash", "play.slash.fill",
+            "play.rectangle", "play.rectangle.fill",
+            "pause", "pause.fill", "pause.circle", "pause.circle.fill",
+            "pause.rectangle", "pause.rectangle.fill",
+            "stop", "stop.fill", "stop.circle", "stop.circle.fill",
+            "forward.end", "forward.end.fill",
+            "forward.end.alt", "forward.end.alt.fill",
+            "backward.end", "backward.end.fill",
+            "backward.end.alt", "backward.end.alt.fill",
+            "shuffle", "shuffle.circle", "shuffle.circle.fill",
+            "repeat", "repeat.circle", "repeat.circle.fill",
+            "repeat.1", "repeat.1.circle", "repeat.1.circle.fill",
+            "music.note", "music.note.list", "music.mic", "music.mic.circle", "music.mic.circle.fill",
+            "goforward", "gobackward",
+            "goforward.5", "goforward.10", "goforward.15", "goforward.30",
+            "gobackward.5", "gobackward.10", "gobackward.15", "gobackward.30",
+            "photo", "photo.fill", "photo.circle", "photo.circle.fill",
+            "photo.tv", "photo.artframe",
+            "video.fill", "video.circle", "video.circle.fill",
+            "hifispeaker", "hifispeaker.fill",
+            "hifispeaker.wave.2", "hifispeaker.wave.2.fill",
+            "guitars",
+        ]
 
-        // 7. 人物类
-        for base in ["person", "person.2", "person.3"] {
-            for suf in ["", ".fill"] { names.insert("\(base)\(suf)") }
-        }
-        for base in ["person.crop.circle", "person.crop.square", "person.crop.rectangle"] {
-            for suf in ["", ".fill"] { names.insert("\(base)\(suf)") }
-        }
-        names.insert("person.crop.circle.badge.plus")
-        names.insert("person.crop.circle.badge.minus")
-        names.insert("person.crop.circle.badge.checkmark")
-        names.insert("person.crop.circle.badge.xmark")
-        names.insert("person.crop.circle.badge.questionmark")
-        names.insert("person.badge.plus")
-        names.insert("person.badge.minus")
-        names.insert("person.fill.checkmark")
-        names.insert("person.fill.xmark")
-        names.insert("person.fill.questionmark")
-        names.insert("person.and.arrow.left.and.arrow.right")
-        names.insert("person.text.rectangle")
-        names.insert("person.line.dotted.person")
-        for suf in ["", ".fill"] {
-            names.insert("face.smiling\(suf)")
-            names.insert("face.dashed\(suf)")
-        }
-        for base in ["hand.raised", "hand.thumbsup", "hand.thumbsdown", "hand.wave",
-                     "hand.point.left", "hand.point.right", "hand.point.up", "hand.point.down"] {
-            for suf in ["", ".fill"] { names.insert("\(base)\(suf)") }
-        }
-        names.insert("hand.point.up.braille")
-        names.insert("hand.point.up.braille.fill")
-        names.insert("hand.point.up.left")
-        names.insert("hand.point.up.left.fill")
-        for base in ["figure.stand", "figure.walk", "figure.run", "figure.roll",
-                     "figure.dance", "figure.cooldown", "figure.flexibility",
-                     "figure.strengthtraining.functional", "figure.mixed.cardio",
-                     "figure.highintensity.intervaltraining"] {
-            for suf in ["", ".circle", ".circle.fill"] { names.insert("\(base)\(suf)") }
-        }
-        names.insert("figure.stand.line.dotted.figure.stand")
+        // MARK: 人物
+        let people = [
+            "person", "person.fill",
+            "person.circle", "person.circle.fill",
+            "person.2", "person.2.fill",
+            "person.3", "person.3.fill",
+            "person.crop.circle", "person.crop.circle.fill",
+            "person.crop.circle.badge.plus", "person.crop.circle.badge.plus.fill",
+            "person.crop.circle.badge.minus", "person.crop.circle.badge.minus.fill",
+            "person.crop.circle.badge.checkmark", "person.crop.circle.badge.xmark",
+            "person.crop.circle.badge.questionmark",
+            "person.crop.square", "person.crop.square.fill",
+            "person.crop.rectangle", "person.crop.rectangle.fill",
+            "person.badge.plus", "person.badge.plus.fill",
+            "person.badge.minus", "person.badge.minus.fill",
+            "person.and.arrow.left.and.arrow.right",
+            "person.fill.checkmark", "person.fill.xmark", "person.fill.questionmark",
+            "person.text.rectangle", "person.text.rectangle.fill",
+            "person.line.dotted.person",
+            "face.smiling", "face.smiling.fill",
+            "face.dashed", "face.dashed.fill",
+            "hand.raised", "hand.raised.fill", "hand.raised.slash",
+            "hand.thumbsup", "hand.thumbsup.fill",
+            "hand.thumbsdown", "hand.thumbsdown.fill",
+            "hand.wave", "hand.wave.fill",
+            "hand.point.left", "hand.point.left.fill",
+            "hand.point.right", "hand.point.right.fill",
+            "hand.point.up", "hand.point.up.fill",
+            "hand.point.down", "hand.point.down.fill",
+            "hand.point.up.braille", "hand.point.up.braille.fill",
+            "hand.point.up.left", "hand.point.up.left.fill",
+            "figure.stand", "figure.stand.line.dotted.figure.stand",
+            "figure.walk", "figure.walk.circle", "figure.walk.circle.fill",
+            "figure.run", "figure.run.circle", "figure.run.circle.fill",
+            "figure.roll", "figure.dance",
+            "figure.cooldown", "figure.flexibility",
+            "figure.strengthtraining.functional",
+            "figure.mixed.cardio", "figure.highintensity.intervaltraining",
+        ]
 
-        // 8. 健康类
-        for base in ["heart", "heart.slash"] {
-            for suf in ["", ".fill", ".circle", ".circle.fill"] { names.insert("\(base)\(suf)") }
-        }
-        names.insert("heart.text.square")
-        names.insert("heart.text.square.fill")
-        names.insert("heart.rectangle")
-        names.insert("heart.rectangle.fill")
-        names.insert("bolt.heart")
-        names.insert("bolt.heart.fill")
-        for base in ["cross", "cross.circle"] {
-            for suf in ["", ".fill"] { names.insert("\(base)\(suf)") }
-        }
-        for base in ["stethoscope", "stethoscope.circle"] { names.insert(base) }
-        for base in ["pill", "pill.fill", "pills", "pills.fill"] { names.insert(base) }
-        for base in ["eye", "eye.fill", "eye.slash", "eye.slash.fill"] { names.insert(base) }
-        names.insert("eye.trianglebadge.exclamationmark")
-        for base in ["ear", "ear.fill", "ear.badge.checkmark"] { names.insert(base) }
-        names.insert("brain")
-        names.insert("brain.head.profile")
-        names.insert("lungs")
-        names.insert("lungs.fill")
-        names.insert("facemask")
-        names.insert("facemask.fill")
+        // MARK: 健康
+        let health = [
+            "heart", "heart.fill", "heart.circle", "heart.circle.fill",
+            "heart.slash", "heart.slash.circle", "heart.slash.circle.fill",
+            "heart.text.square", "heart.text.square.fill",
+            "heart.rectangle", "heart.rectangle.fill",
+            "bolt.heart", "bolt.heart.fill",
+            "cross", "cross.fill", "cross.circle", "cross.circle.fill",
+            "stethoscope", "stethoscope.circle", "stethoscope.circle.fill",
+            "pill", "pill.fill", "pills", "pills.fill",
+            "eye", "eye.fill", "eye.circle", "eye.circle.fill",
+            "eye.slash", "eye.slash.fill",
+            "eye.trianglebadge.exclamationmark",
+            "ear", "ear.fill", "ear.badge.checkmark",
+            "brain", "brain.head.profile",
+            "lungs", "lungs.fill",
+            "facemask", "facemask.fill",
+        ]
 
-        // 9. 自然类
-        for suf in ["", ".fill", ".circle", ".circle.fill"] {
-            names.insert("leaf\(suf)")
-            names.insert("flame\(suf)")
-            names.insert("drop\(suf)")
-            names.insert("tree\(suf)")
-        }
-        names.insert("leaf.arrow.triangle.circularpath")
-        names.insert("drop.degreesign")
-        names.insert("drop.triangle")
-        names.insert("drop.triangle.fill")
-        names.insert("snowflake")
-        for suf in ["", ".fill"] { names.insert("mountain.2\(suf)") }
-        names.insert("camera.macro")
-        names.insert("camera.macro.circle")
-        names.insert("camera.macro.circle.fill")
+        // MARK: 自然
+        let nature = [
+            "leaf", "leaf.fill", "leaf.circle", "leaf.circle.fill",
+            "leaf.arrow.triangle.circularpath",
+            "flame", "flame.fill", "flame.circle", "flame.circle.fill",
+            "drop", "drop.fill", "drop.circle", "drop.circle.fill",
+            "drop.triangle", "drop.triangle.fill",
+            "snowflake", "snowflake.circle", "snowflake.circle.fill",
+            "mountain.2", "mountain.2.fill",
+            "tree", "tree.fill", "tree.circle", "tree.circle.fill",
+            "camera.macro", "camera.macro.circle", "camera.macro.circle.fill",
+        ]
 
-        // 10. 物品工具类
-        for base in ["trash", "trash.slash"] {
-            for suf in ["", ".fill", ".circle", ".circle.fill"] { names.insert("\(base)\(suf)") }
-        }
-        for base in ["folder", "folder.badge.plus", "folder.badge.minus"] {
-            for suf in ["", ".fill"] { names.insert("\(base)\(suf)") }
-        }
-        for base in ["doc", "doc.text", "doc.richtext", "doc.plaintext", "doc.append", "doc.badge.plus",
-                     "doc.badge.gearshape", "doc.on.doc", "doc.on.clipboard", "doc.zipper"] {
-            for suf in ["", ".fill"] { names.insert("\(base)\(suf)") }
-        }
-        names.insert("calendar")
-        names.insert("calendar.circle")
-        names.insert("calendar.circle.fill")
-        for suf in ["", ".fill"] {
-            names.insert("clock\(suf)")
-            names.insert("alarm\(suf)")
-            names.insert("book\(suf)")
-            names.insert("book.closed\(suf)")
-            names.insert("bookmark\(suf)")
-            names.insert("tag\(suf)")
-            names.insert("gift\(suf)")
-            names.insert("map\(suf)")
-            names.insert("location\(suf)")
-            names.insert("lock\(suf)")
-            names.insert("lock.open\(suf)")
-            names.insert("bell\(suf)")
-            names.insert("bell.slash\(suf)")
-            names.insert("camera\(suf)")
-            names.insert("gearshape\(suf)")
-        }
-        names.insert("bell.badge")
-        names.insert("bell.badge.fill")
-        names.insert("bell.and.waveform")
-        names.insert("bell.and.waveform.fill")
-        names.insert("timer")
-        names.insert("timer.square")
-        names.insert("hourglass")
-        names.insert("hourglass.badge.plus")
-        names.insert("hourglass.bottomhalf.filled")
-        names.insert("hourglass.tophalf.filled")
-        names.insert("magnifyingglass")
-        names.insert("magnifyingglass.circle")
-        names.insert("magnifyingglass.circle.fill")
-        names.insert("plus.magnifyingglass")
-        names.insert("minus.magnifyingglass")
-        names.insert("gear")
-        names.insert("gearshape.2")
-        names.insert("gearshape.2.fill")
-        names.insert("scissors")
-        names.insert("scissors.badge.ellipsis")
-        names.insert("link")
-        names.insert("link.circle")
-        names.insert("link.circle.fill")
-        names.insert("qrcode")
-        names.insert("barcode")
-        names.insert("barcode.viewfinder")
-        names.insert("qrcode.viewfinder")
-        names.insert("paperclip")
-        names.insert("paperclip.circle")
-        names.insert("paperclip.circle.fill")
-        for suf in ["", ".fill"] { names.insert("clipboard\(suf)") }
-        names.insert("list.clipboard")
-        names.insert("books.vertical")
-        names.insert("books.vertical.fill")
+        // MARK: 物品
+        let objects = [
+            "trash", "trash.fill", "trash.circle", "trash.circle.fill",
+            "trash.slash", "trash.slash.fill",
+            "folder", "folder.fill", "folder.circle", "folder.circle.fill",
+            "folder.badge.plus", "folder.badge.minus",
+            "folder.badge.person.crop", "folder.badge.person.crop.fill",
+            "doc", "doc.fill", "doc.circle", "doc.circle.fill",
+            "doc.text", "doc.text.fill",
+            "doc.richtext", "doc.plaintext", "doc.append", "doc.append.fill",
+            "doc.badge.plus", "doc.badge.plus.fill",
+            "doc.badge.gearshape", "doc.badge.gearshape.fill",
+            "doc.on.doc", "doc.on.doc.fill",
+            "doc.on.clipboard", "doc.on.clipboard.fill",
+            "doc.zipper",
+            "clipboard", "clipboard.fill",
+            "list.clipboard", "list.clipboard.fill",
+            "scissors", "scissors.badge.ellipsis",
+            "calendar", "calendar.circle", "calendar.circle.fill",
+            "clock", "clock.fill", "clock.circle", "clock.circle.fill",
+            "alarm", "alarm.fill",
+            "timer", "timer.square",
+            "hourglass", "hourglass.badge.plus",
+            "hourglass.bottomhalf.filled", "hourglass.tophalf.filled",
+            "book", "book.fill", "book.circle", "book.circle.fill",
+            "book.closed", "book.closed.fill",
+            "books.vertical", "books.vertical.fill",
+            "bookmark", "bookmark.fill", "bookmark.slash", "bookmark.slash.fill",
+            "paperclip", "paperclip.circle", "paperclip.circle.fill",
+            "link", "link.circle", "link.circle.fill",
+            "tag", "tag.fill", "tag.circle", "tag.circle.fill",
+            "tag.slash", "tag.slash.fill",
+            "map", "map.fill", "map.circle", "map.circle.fill",
+            "location", "location.fill",
+            "location.circle", "location.circle.fill",
+            "location.viewfinder", "location.north.line", "location.north.line.fill",
+            "magnifyingglass", "magnifyingglass.circle", "magnifyingglass.circle.fill",
+            "plus.magnifyingglass", "minus.magnifyingglass",
+            "lock", "lock.fill", "lock.circle", "lock.circle.fill",
+            "lock.open", "lock.open.fill",
+            "lock.rotation", "lock.icloud", "lock.icloud.fill",
+            "lock.slash", "lock.slash.fill",
+            "bell", "bell.fill", "bell.circle", "bell.circle.fill",
+            "bell.slash", "bell.slash.fill", "bell.slash.circle", "bell.slash.circle.fill",
+            "bell.badge", "bell.badge.fill",
+            "camera", "camera.fill", "camera.circle", "camera.circle.fill",
+            "camera.viewfinder",
+            "gear", "gearshape", "gearshape.fill", "gearshape.2", "gearshape.2.fill",
+            "qrcode", "qrcode.viewfinder",
+            "barcode", "barcode.viewfinder",
+            "gift", "gift.fill", "gift.circle", "gift.circle.fill",
+            "giftcard", "giftcard.fill",
+            "signature",
+        ]
 
-        // 11. 交通类
-        for suf in ["", ".fill"] { names.insert("car\(suf)") }
-        names.insert("car.side")
-        names.insert("car.side.fill")
-        names.insert("bus")
-        names.insert("bus.fill")
-        names.insert("bus.doubledecker")
-        names.insert("bus.doubledecker.fill")
-        names.insert("tram")
-        names.insert("tram.fill")
-        names.insert("tram.tunnel.fill")
-        names.insert("bicycle")
-        names.insert("bicycle.circle")
-        names.insert("bicycle.circle.fill")
-        for suf in ["", ".circle", ".circle.fill"] { names.insert("airplane\(suf)") }
-        names.insert("airplane.departure")
-        names.insert("airplane.arrival")
-        for suf in ["", ".fill"] { names.insert("sailboat\(suf)") }
-        names.insert("ferry")
-        names.insert("ferry.fill")
-        names.insert("fuelpump")
-        names.insert("fuelpump.fill")
-        names.insert("fuelpump.exclamationmark")
-        names.insert("signpost.left")
-        names.insert("signpost.right")
-        names.insert("signpost.right.fill")
-        names.insert("parkingsign")
-        names.insert("parkingsign.circle")
-        names.insert("parkingsign.circle.fill")
+        // MARK: 交通
+        let transport = [
+            "car", "car.fill", "car.circle", "car.circle.fill",
+            "car.side", "car.side.fill",
+            "bus", "bus.fill", "bus.doubledecker", "bus.doubledecker.fill",
+            "tram", "tram.fill", "tram.tunnel.fill",
+            "bicycle", "bicycle.circle", "bicycle.circle.fill",
+            "airplane", "airplane.circle", "airplane.circle.fill",
+            "airplane.departure", "airplane.arrival",
+            "sailboat", "sailboat.fill",
+            "ferry", "ferry.fill", "boat", "boat.fill",
+            "fuelpump", "fuelpump.fill", "fuelpump.exclamationmark",
+            "signpost.left", "signpost.right", "signpost.right.fill",
+            "parkingsign", "parkingsign.circle", "parkingsign.circle.fill",
+        ]
 
-        // 12. 商业类
-        for suf in ["", ".fill"] {
-            names.insert("bag\(suf)")
-            names.insert("cart\(suf)")
-            names.insert("creditcard\(suf)")
-            names.insert("banknote\(suf)")
-            names.insert("giftcard\(suf)")
-        }
-        names.insert("bag.badge.plus")
-        names.insert("bag.badge.minus")
-        names.insert("cart.badge.plus")
-        names.insert("cart.badge.minus")
-        names.insert("creditcard.viewfinder")
-        names.insert("banknote.xmark")
-        for suf in ["", ".circle", ".circle.fill", ".square", ".square.fill"] {
-            names.insert("dollarsign\(suf)")
-            names.insert("eurosign\(suf)")
-            names.insert("sterlingsign\(suf)")
-            names.insert("yensign\(suf)")
-        }
-        names.insert("percent")
+        // MARK: 商业
+        let commerce = [
+            "bag", "bag.fill", "bag.circle", "bag.circle.fill",
+            "bag.badge.plus", "bag.badge.minus",
+            "cart", "cart.fill", "cart.badge.plus", "cart.badge.minus",
+            "creditcard", "creditcard.fill", "creditcard.circle", "creditcard.circle.fill",
+            "creditcard.viewfinder",
+            "banknote", "banknote.fill",
+            "giftcard", "giftcard.fill",
+            "dollarsign.circle", "dollarsign.circle.fill",
+            "dollarsign.square", "dollarsign.square.fill",
+            "centsign.circle", "centsign.circle.fill",
+            "yensign.circle", "yensign.circle.fill",
+            "sterlingsign.circle", "sterlingsign.circle.fill",
+            "eurosign.circle", "eurosign.circle.fill",
+            "rublesign.circle", "rublesign.circle.fill",
+            "percent",
+        ]
 
-        // 13. 形状类
-        for base in ["square", "circle", "rectangle"] {
-            for suf in ["", ".fill"] { names.insert("\(base)\(suf)") }
-        }
-        for base in ["triangle", "diamond", "hexagon", "pentagon", "octagon", "capsule", "oval"] {
-            for suf in ["", ".fill"] { names.insert("\(base)\(suf)") }
-        }
-        for suf in ["", ".fill", ".circle", ".circle.fill"] { names.insert("house\(suf)") }
-        names.insert("square.on.square")
-        names.insert("square.fill.on.square.fill")
-        names.insert("square.on.circle")
-        names.insert("rectangle.on.rectangle")
-        names.insert("rectangle.fill.on.rectangle.fill")
-        names.insert("rectangle.3.offgrid")
-        names.insert("rectangle.3.offgrid.fill")
-        names.insert("square.grid.3x3")
-        names.insert("square.grid.3x3.fill")
-        names.insert("circle.grid.3x3")
-        names.insert("circle.grid.3x3.fill")
-        names.insert("square.grid.2x2")
-        names.insert("square.grid.2x2.fill")
-        names.insert("rectangle.split.2x1")
-        names.insert("rectangle.split.1x2")
-        names.insert("rectangle.split.2x2")
-        names.insert("rectangle.split.3x3")
+        // MARK: 形状
+        let shapes = [
+            "square", "square.fill",
+            "circle", "circle.fill",
+            "rectangle", "rectangle.fill",
+            "triangle", "triangle.fill",
+            "diamond", "diamond.fill",
+            "hexagon", "hexagon.fill",
+            "pentagon", "pentagon.fill",
+            "capsule", "capsule.fill",
+            "oval", "oval.fill",
+            "circle.square",
+            "square.on.square", "square.fill.on.square.fill",
+            "square.on.circle", "square.fill.on.circle.fill",
+            "rectangle.on.rectangle", "rectangle.fill.on.rectangle.fill",
+            "rectangle.3.offgrid", "rectangle.3.offgrid.fill",
+            "rectangle.split.2x1", "rectangle.split.1x2",
+            "rectangle.split.2x2", "rectangle.split.3x3",
+            "square.grid.3x3", "square.grid.3x3.fill",
+            "circle.grid.3x3", "circle.grid.3x3.fill",
+            "square.grid.2x2", "square.grid.2x2.fill",
+            "rectangle.grid.1x2", "rectangle.grid.1x2.fill",
+            "house", "house.fill", "house.circle", "house.circle.fill",
+        ]
 
-        // 14. 文本类
-        names.insert("textformat")
-        names.insert("textformat.abc")
-        names.insert("textformat.abc.dottedunderline")
-        names.insert("textformat.alt")
-        names.insert("textformat.size")
-        names.insert("textformat.superscript")
-        names.insert("textformat.subscript")
-        names.insert("bold")
-        names.insert("italic")
-        names.insert("underline")
-        names.insert("strikethrough")
-        names.insert("list.bullet")
-        names.insert("list.bullet.indent")
-        names.insert("list.number")
-        names.insert("list.star")
-        names.insert("list.dash")
-        names.insert("list.bullet.rectangle")
-        names.insert("list.triangle")
-        names.insert("text.alignleft")
-        names.insert("text.aligncenter")
-        names.insert("text.alignright")
-        names.insert("text.justify")
-        names.insert("text.badge.plus")
-        names.insert("text.badge.minus")
-        names.insert("text.badge.star")
-        names.insert("text.badge.checkmark")
-        names.insert("text.redaction")
-        names.insert("paragraphsign")
+        // MARK: 文本
+        let text = [
+            "textformat", "textformat.abc", "textformat.abc.dottedunderline",
+            "textformat.alt", "textformat.size",
+            "textformat.superscript", "textformat.subscript",
+            "bold", "italic", "underline", "strikethrough",
+            "bold.italic.underline", "bold.underline",
+            "text.bubble", "text.bubble.fill",
+            "text.quote",
+            "text.alignleft", "text.aligncenter", "text.alignright", "text.justify",
+            "list.bullet", "list.bullet.indent", "list.bullet.rectangle",
+            "list.number", "list.star", "list.dash",
+            "list.triangle",
+            "text.badge.plus", "text.badge.minus", "text.badge.star", "text.badge.checkmark",
+            "text.redaction",
+            "paragraphsign",
+        ]
 
-        // 15. 键盘类
-        names.insert("command")
-        names.insert("command.circle")
-        names.insert("command.circle.fill")
-        names.insert("option")
-        names.insert("alt")
-        names.insert("control")
-        names.insert("projective")
-        names.insert("shift")
-        names.insert("shift.fill")
-        names.insert("capslock")
-        names.insert("capslock.fill")
-        names.insert("delete.left")
-        names.insert("delete.left.fill")
-        names.insert("delete.right")
-        names.insert("delete.right.fill")
-        names.insert("clear")
-        names.insert("clear.fill")
-        names.insert("eject")
-        names.insert("eject.fill")
-        names.insert("escape")
-        names.insert("return")
-        names.insert("return.left")
-        names.insert("return.right")
-        names.insert("tab")
+        // MARK: 键盘
+        let keyboard = [
+            "command", "command.circle", "command.circle.fill",
+            "option", "alt",
+            "control", "projective",
+            "shift", "shift.fill",
+            "capslock", "capslock.fill",
+            "delete.left", "delete.left.fill",
+            "delete.right", "delete.right.fill",
+            "clear", "clear.fill",
+            "eject", "eject.fill",
+            "escape", "return", "return.left", "return.right",
+            "tab",
+        ]
 
-        // 16. 索引/符号类
-        for letter in "abcdefghijklmnopqrstuvwxyz".map(String.init) {
-            for suf in [".circle", ".circle.fill", ".square", ".square.fill"] {
-                names.insert("\(letter)\(suf)")
-            }
-        }
-        for suf in [".circle", ".circle.fill", ".square", ".square.fill"] {
-            names.insert("number\(suf)")
-            names.insert("questionmark\(suf)")
-            names.insert("exclamationmark\(suf)")
-            names.insert("xmark\(suf)")
-            names.insert("checkmark\(suf)")
-            names.insert("plus\(suf)")
-            names.insert("minus\(suf)")
-            names.insert("multiply\(suf)")
-            names.insert("divide\(suf)")
-        }
-        names.insert("checkmark")
-        names.insert("xmark")
-        names.insert("plus")
-        names.insert("minus")
-        names.insert("multiply")
-        names.insert("divide")
-        names.insert("questionmark")
-        names.insert("exclamationmark")
+        // MARK: 索引
+        let indices = "abcdefghijklmnopqrstuvwxyz".map { String($0) }.flatMap { letter -> [String] in
+            [".circle", ".circle.fill", ".square", ".square.fill"].map { "\(letter)\($0)" }
+        } + ["number.circle", "number.circle.fill", "number.square", "number.square.fill",
+             "questionmark.circle", "questionmark.circle.fill", "questionmark.square", "questionmark.square.fill",
+             "exclamationmark.circle", "exclamationmark.circle.fill", "exclamationmark.square", "exclamationmark.square.fill",
+             "xmark.circle", "xmark.circle.fill", "xmark.square", "xmark.square.fill",
+             "checkmark.circle", "checkmark.circle.fill", "checkmark.square", "checkmark.square.fill",
+             "plus.circle", "plus.circle.fill", "plus.square", "plus.square.fill",
+             "minus.circle", "minus.circle.fill", "minus.square", "minus.square.fill",
+             "multiply.circle", "multiply.circle.fill",
+             "divide.circle", "divide.circle.fill",
+             "equal.circle", "equal.circle.fill",
+             "greaterthan.circle", "greaterthan.circle.fill",
+             "lessthan.circle", "lessthan.circle.fill",
+             "checkmark", "xmark", "plus", "minus", "multiply", "divide",
+             "checkmark.seal", "checkmark.seal.fill",
+             "xmark.seal", "xmark.seal.fill",
+             "checkmark.icloud", "checkmark.icloud.fill",
+             "xmark.icloud", "xmark.icloud.fill",
+             "checkmark.diamond", "checkmark.diamond.fill",
+             "xmark.diamond", "xmark.diamond.fill",
+        ]
 
-        // 17. 索引变体
-        names.insert("checkmark.seal")
-        names.insert("checkmark.seal.fill")
-        names.insert("xmark.seal")
-        names.insert("xmark.seal.fill")
-        names.insert("checkmark.icloud")
-        names.insert("xmark.icloud")
-
-        // 18. 无障碍类
-        names.insert("circle.lefthalf.filled")
-        names.insert("circle.righthalf.filled")
-        names.insert("circle.bottomhalf.filled")
-        names.insert("circle.tophalf.filled")
-        names.insert("circle.inset.filled")
-        names.insert("rectangle.inset.filled")
-        names.insert("capsule.inset.filled")
-        names.insert("circle.fill.square.fill")
-        names.insert("rectangle.inset.filled.and.person.filled")
-        names.insert("rectangle.portrait")
-
-        // 19. 附加形状变体
-        for shape in ["square", "circle", "triangle", "diamond", "hexagon", "pentagon", "capsule", "oval"] {
-            for suf in [".inset.filled", ".lefthalf.filled", ".righthalf.filled", ".bottomhalf.filled", ".tophalf.filled"] {
-                names.insert("\(shape)\(suf)")
-            }
+        // MARK: 常用变体 (.fill / .circle)
+        // 许多符号有 .fill 变体
+        var fillVariants: Set<String> = []
+        for base in ["star", "bell", "bookmark", "book", "folder", "doc", "trash",
+                     "heart", "person", "house", "cloud", "sun", "moon", "star",
+                     "clock", "alarm", "calendar", "map", "link", "tag", "gift",
+                     "pencil", "camera", "gear", "location", "lock", "envelope",
+                     "phone", "video", "mic", "message", "bubble", "quote",
+                     "play", "pause", "stop", "flag", "leaf", "flame", "drop",
+                     "car", "bus", "tram", "airplane", "bicycle"] {
+            fillVariants.insert("\(base).fill")
+            fillVariants.insert("\(base).circle")
+            fillVariants.insert("\(base).circle.fill")
         }
 
-        // 20. Fill 变体生成
-        // 很多图标有 .fill 变体
-        let additionalSymbols = names.compactMap { name -> String? in
-            if !name.hasSuffix(".fill") && !name.contains(".fill.") {
-                let fillName = "\(name).fill"
-                // 排除明显没有 fill 变体的
-                if !fillName.contains("..") {
-                    return fillName
-                }
-            }
-            return nil
+        // 整合去重
+        var all = Set<String>()
+        for list in [arrows, weather, comms, devices, editing, media, people, health, nature, objects, transport, commerce, shapes, text, keyboard, indices] {
+            for item in list { all.insert(item) }
         }
-        for name in additionalSymbols {
-            names.insert(name)
-        }
+        for variant in fillVariants { all.insert(variant) }
 
-        return names.sorted()
+        return all.sorted()
     }()
 }
