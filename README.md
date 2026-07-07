@@ -1,105 +1,72 @@
 # OneKit 🧰
 
-> 综合工具集 — SF Symbols 浏览器 · AppStore 图标下载 · 更多工具开发中
+> iOS 综合工具集 — SF Symbols 浏览器 · AppStore 图标下载 · 调色板 · 主题切换
 
-![Platform](https://img.shields.io/badge/platform-iOS%2016%2B-black)
-![Swift](https://img.shields.io/badge/swift-5.7%2B-orange)
-![License](https://img.shields.io/badge/license-MIT-blue)
+![Platform](https://img.shields.io/badge/iOS-16%2B-black)
+![Swift](https://img.shields.io/badge/Swift-5.7-orange)
 
-## 📱 简介
+## 功能
 
-**OneKit** 是一个面向 iOS 开发者和设计师的综合工具应用。采用纯黑白现代设计风格，提供高效的工具集合。
+| 工具 | 说明 |
+|------|------|
+| 🔤 SF Symbols | 浏览 6000+ SF Symbols，搜索预览，复制名称，保存 PNG |
+| 📲 AppStore 图标下载 | 搜索 AppStore 应用，下载多尺寸高清图标 |
+| 🎨 调色板 | 预设色板，RGB 调色，色彩和谐分析，收藏颜色 |
+| 🌗 主题切换 | 纯黑 / 纯白 / 跟随系统 |
 
-### 当前功能
+## 安装
 
-| 工具 | 说明 | 状态 |
-|------|------|------|
-| 🔤 SF Symbols | 浏览、搜索、预览 SF Symbols 图标 | ✅ 可用 |
-| 📲 AppStore 图标下载 | 搜索并下载任意 App 的高清图标 | ✅ 可用 |
+通过 [TrollStore](https://github.com/opa334/TrollStore) 安装：
 
-### 规划中
+1. 下载 [最新 IPA](https://github.com/qiu7c/OneKit/releases)
+2. 分享到 TrollStore → Install
 
-- 🎨 调色板工具
-- 🔧 JSON 格式化工具
-- 📱 二维码生成器
-- 🖼 图片压缩工具
-- 🌐 IP 网络工具
-- 📝 正则表达式测试
-
-## 🛠 技术栈
-
-- **语言**: Swift 5.7+
-- **框架**: SwiftUI
-- **目标**: iOS 16.0+
-- **设计**: 纯黑/白极简风格
-- **项目管理**: XcodeGen (`project.yml`)
-
-## 🚀 开始使用
-
-### 前置条件
-
-- Xcode 15.0+
-- [XcodeGen](https://github.com/yonaskolb/XcodeGen) (可选，用于生成 .xcodeproj)
-
-### 构建步骤
+## 构建
 
 ```bash
-# 1. 克隆仓库
-git clone https://github.com/qiu7c/OneKit.git
-cd OneKit
-
-# 2. 生成 Xcode 项目 (需要安装 XcodeGen)
+# 1. 安装 XcodeGen
 brew install xcodegen
+
+# 2. 生成 Xcode 项目
 xcodegen generate
 
-# 3. 打开并运行
-open OneKit.xcodeproj
+# 3. 构建
+xcodebuild build -project OneKit.xcodeproj -scheme OneKit -destination generic/platform=iOS -configuration Release
 ```
 
-### 手动创建项目
+## 技术栈
 
-如果不想安装 XcodeGen，可以直接在 Xcode 中：
-1. 新建 iOS App 项目
-2. 选择 SwiftUI + Swift
-3. Bundle Identifier: `com.cc.OneKit`
-4. 将 `OneKit/` 目录下的源文件拖入项目
+- **语言**: Swift 5.7
+- **框架**: SwiftUI
+- **最低版本**: iOS 16.0
+- **包管理**: SwiftPM (SFSafeSymbols)
+- **项目生成**: XcodeGen
+- **CI/CD**: GitHub Actions
+- **包名**: `com.cc.OneKit`
 
-## 🔄 GitHub Actions
-
-本项目配置了 GitHub Actions 自动构建流程：
-
-- **Push/PR**: 自动编译检查
-- **Release**: main 分支推送时自动 Archive
-- **手动触发**: 可通过 GitHub Actions 页面手动触发
-
-构建产物以 Artifact 形式保存，可在 Actions 页面下载。
-
-## 📄 项目结构
+## 项目结构
 
 ```
 OneKit/
-├── project.yml              # XcodeGen 项目配置
 ├── OneKit/
-│   ├── OneKitApp.swift       # App 入口
-│   ├── ContentView.swift     # 主 Tab 页面
+│   ├── OneKitApp.swift       # 入口
+│   ├── ContentView.swift     # 主 Tab 页
+│   ├── Helpers/              # 主题、扩展
 │   ├── Models/               # 数据模型
-│   ├── ViewModels/           # ViewModel 层
-│   ├── Views/                # UI 视图
+│   ├── ViewModels/           # ViewModel
+│   ├── Views/                # UI 页面
 │   │   ├── Home/             # 主页
 │   │   ├── SFSymbols/        # SF Symbols 浏览器
-│   │   ├── IconDownloader/   # AppStore 图标下载
+│   │   ├── IconDownloader/   # 图标下载
+│   │   ├── ColorPalette/     # 调色板
 │   │   └── Components/       # 通用组件
-│   ├── Services/             # 服务层
-│   ├── Helpers/              # 扩展工具
+│   ├── Services/             # 网络服务、缓存
 │   └── Resources/            # 资源文件
-├── .github/workflows/        # CI/CD 配置
+├── project.yml               # XcodeGen 配置
+├── .github/workflows/        # CI/CD
 └── README.md
 ```
 
-## 📄 许可证
+## License
 
-MIT License
-
----
-
-**OneKit** — Made with ❤️
+MIT
