@@ -49,7 +49,9 @@ struct ColorPaletteView: View {
                 .overlay(Text(viewModel.hexInput).font(.title2).fontWeight(.bold).foregroundColor(viewModel.selectedColor.isLight ? .black : .white).opacity(0.7))
 
             ColorPicker("取色器", selection: Binding(get: { viewModel.currentColor }, set: { c in
-                UIColor(c).getRed(&viewModel.customRed, green: &viewModel.customGreen, blue: &viewModel.customBlue, alpha: &viewModel.customOpacity)
+                var r: CGFloat = 0; var g: CGFloat = 0; var b: CGFloat = 0; var a: CGFloat = 0
+                UIColor(c).getRed(&r, green: &g, blue: &b, alpha: &a)
+                viewModel.customRed = Double(r); viewModel.customGreen = Double(g); viewModel.customBlue = Double(b); viewModel.customOpacity = Double(a)
                 viewModel.updateFromSliders()
             }), supportsOpacity: false)
             .labelsHidden()
