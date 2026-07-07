@@ -22,31 +22,17 @@ jobs:
           import Foundation
           import CoreText
 
-          let familyName = "SF Pro"
-          let desc = CTFontDescriptorCreateWithAttributes([
-              kCTFontFamilyNameAttribute: familyName
-          ] as CFDictionary)
-          let matched = CTFontDescriptorCreateMatchingFontDescriptors(desc, nil) as? [CTFontDescriptor] ?? []
-
-          var allNames = Set<String>()
-          for fd in matched {
-              let name = CTFontDescriptorCopyAttribute(fd, kCTFontNameAttribute) as? String ?? ""
-              guard name.contains("Symbol") || !name.hasPrefix(".") else { continue }
-              guard let font = CTFontCreateWithFontDescriptor(fd, 0.0, nil) as CTFont? else { continue }
-              let count = CTFontGetGlyphCount(font)
-              for i in 0..<min(Int(count), 5000) {
-                  let glyph = CGGlyph(i)
-                  if let n = CTFontCopyGlyphName(font, glyph) as String?, !n.isEmpty {
-                      allNames.insert(n)
-                  }
+          // 尝试多个字体名
+          for family in ["SF Pro", "SF Compact", "SF Symbols", ".AppleSymbolsSF"] {
+              let desc = CTFontDescriptorCreateWithAttributes([kCTFontFamilyNameAttribute: family] as CFDictionary)
+              let matched = CTFontDescriptorCreateMatchingFontDescriptors(desc, nil) as? [CTFontDescriptor] ?? []
+              for fd in matched {
+                  let name = CTFontDescriptorCopyAttribute(fd, kCTFontNameAttribute) as? String ?? ""
+                  print("FONT: \(name) \(CTFontGetGlyphCount(CTFontCreateWithFontDescriptor(fd, 0, nil)))")
               }
           }
-
-          for n in allNames.sorted() { print(n) }
           ENDSWIFT
-
-          xcrun swift /tmp/gen.swift > /tmp/symbols.txt 2>/dev/null
-          echo "Found $(wc -l < /tmp/symbols.txt) symbols"
+          xcrun swift /tmp/gen.swift 2>&1
 
       # swiftc 直接编译
       - name: 🏗 Build
