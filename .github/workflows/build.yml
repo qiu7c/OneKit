@@ -17,6 +17,13 @@ jobs:
 
       - run: brew install xcodegen && xcodegen generate
 
+      - name: 🔍 Debug project
+        run: |
+          echo "=== Source files ==="
+          find OneKit -name "*.swift" | sort
+          echo "=== XcodeGen spec ==="
+          grep -A5 "sources:" project.yml
+
       # ============================================================
       # 最简构建: 不用签名, 不用证书, 不用花活
       # 模拟器构建不需要任何签名 → 直接出 arm64 二进制
@@ -28,7 +35,8 @@ jobs:
             -scheme OneKit \
             -destination 'platform=iOS Simulator,name=iPhone 15 Pro' \
             -configuration Release \
-            -derivedDataPath build 2>&1 | tail -5
+            -derivedDataPath build 2>&1 | grep -E "^(CompileSwift|Ld |error:|warning:|BUILD|===|^[^ ]*error)" | head -30
+          echo "=== EXIT: $? ==="
 
       - name: 📦 Package
         run: |
