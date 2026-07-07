@@ -14,13 +14,12 @@ env:
 
 jobs:
   # ============================================================
-  # Job 1: 构建 iOS 真机 IPA + Release 发布
+  # Job 1: 构建 TrollStore 兼容 IPA
   # ============================================================
   build-ipa:
     runs-on: macos-14
     permissions:
       contents: write
-      actions: read
 
     steps:
       - name: 📥 Checkout
@@ -40,41 +39,99 @@ jobs:
       - name: 📦 Generate Xcode Project
         run: xcodegen generate
 
-      - name: 🏗 Build for iOS (arm64)
+      - name: 🏗 Build for iOS Device (arm64)
         run: |
           xcodebuild build \
             -project ${{ env.PROJECT_NAME }}.xcodeproj \
             -scheme ${{ env.PROJECT_NAME }} \
             -sdk iphoneos \
             -configuration Release \
+            -arch arm64 \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
-            BUILD_DIR=./build 2>&1 | tee build.log | tail -30
+            DEVELOPMENT_TEAM="" \
+            BUILD_DIR=./build \
+            OBJROOT=./build/obj \
+            SYMROOT=./build/sym 2>&1 | tee build.log
 
-      - name: 📦 Package IPA
+      - name: 🔍 Verify Binary
         run: |
-          APP_PATH=$(find build -name "*.app" -type d | head -1)
-          echo "Found .app at: $APP_PATH"
+          echo "=== Searching for .app ==="
+          find build -name "*.app" -type d
+          echo "=== Searching for binary ==="
+          find build -name "${{ env.PROJECT_NAME }}" -type f
+          echo "=== Directory tree ==="
+          find build -type f -name "*.app" -o -name "${{ env.PROJECT_NAME }}" | head -20
 
+      - name: 📦 Package IPA for TrollStore
+        run: |
+          # 找 .app
+          APP_PATH=$(find build -name "*.app" -type d | head -1)
           if [ -z "$APP_PATH" ]; then
-            echo "❌ .app not found, trying Release-iphoneos/"
             APP_PATH="build/Release-iphoneos/${{ env.PROJECT_NAME }}.app"
           fi
 
-          if [ -d "$APP_PATH" ]; then
-            mkdir -p Payload
-            cp -R "$APP_PATH" Payload/
-            zip -r ${{ env.PROJECT_NAME }}.ipa Payload/ -x "*.DS_Store"
-            rm -rf Payload
-            echo "✅ IPA created: $(ls -lh ${{ env.PROJECT_NAME }}.ipa)"
-          else
-            echo "❌ .app not found"
-            find build -name "*.app" -type d 2>/dev/null
+          if [ ! -d "$APP_PATH" ]; then
+            echo "❌ .app not found!"
+            ls -la build/
+            find build -maxdepth 5 -type d | head -20
             exit 1
           fi
 
-      - name: 📄 Upload IPA to Actions Artifacts
+          echo "✅ Found .app at: $APP_PATH"
+          ls -la "$APP_PATH/"
+
+          # 检查二进制是否存在
+          BINARY="$APP_PATH/${{ env.PROJECT_NAME }}"
+          if [ ! -f "$BINARY" ]; then
+            echo "❌ Binary not found at $BINARY!"
+            ls -la "$APP_PATH/"
+            # 尝试找其他可执行文件
+            find "$APP_PATH" -type f -perm +111 | head -5
+            exit 1
+          fi
+
+          echo "✅ Binary found: $BINARY"
+          file "$BINARY"
+
+          # 确保可执行
+          chmod +x "$BINARY"
+
+          # 植入 Swift 运行时 (TrollStore 需要)
+          echo "=== Copying Swift runtime ==="
+          mkdir -p "Payload/${{ env.PROJECT_NAME }}.app"
+          cp -R "$APP_PATH/" "Payload/${{ env.PROJECT_NAME }}.app/"
+
+          # Swift 标准库
+          xcrun swift-stdlib-tool \
+            --copy \
+            --platform iphoneos \
+            --source-dir "$APP_PATH" \
+            --destination-dir "Payload/${{ env.PROJECT_NAME }}.app/Frameworks" 2>&1 || true
+
+          # 移除代码签名 (TrollStore 自己签名)
+          rm -rf "Payload/${{ env.PROJECT_NAME }}.app/_CodeSignature" 2>/dev/null || true
+          rm -f "Payload/${{ env.PROJECT_NAME }}.app/CodeResources" 2>/dev/null || true
+
+          # Info.plist 检查
+          if [ -f "Payload/${{ env.PROJECT_NAME }}.app/Info.plist" ]; then
+            echo "✅ Info.plist found"
+            plutil -p "Payload/${{ env.PROJECT_NAME }}.app/Info.plist" | head -20
+          else
+            echo "❌ Info.plist missing!"
+            exit 1
+          fi
+
+          # 打包 IPA
+          zip -r ${{ env.PROJECT_NAME }}.ipa Payload/ -x "*.DS_Store"
+          rm -rf Payload
+
+          echo "✅ IPA created!"
+          ls -lh ${{ env.PROJECT_NAME }}.ipa
+          unzip -l ${{ env.PROJECT_NAME }}.ipa | head -20
+
+      - name: 📄 Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.PROJECT_NAME }}.ipa
@@ -82,12 +139,12 @@ jobs:
           retention-days: 90
 
       # ============================================================
-      # 发布到 GitHub Releases (仅 main 分支)
+      # 发布 Release
       # ============================================================
       - name: 🏷 Get version
         id: version
         run: |
-          echo "tag=v1.0.0-$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+          echo "tag=v1.0.0-$(date +'%Y%m%d')-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
           echo "name=OneKit v1.0.0 ($(date +'%Y-%m-%d'))" >> $GITHUB_OUTPUT
 
       - name: 🚀 Create GitHub Release
@@ -99,17 +156,16 @@ jobs:
           body: |
             ## OneKit v1.0.0
 
-            ### 功能
-            - 🔤 SF Symbols 浏览器 — 搜索/分类/预览
-            - 📲 AppStore 图标下载 — 搜索 App 图标，多尺寸下载
-            - 🎨 调色板工具 — 预设色/自定义/色彩和谐
-            - 🌗 主题切换 — 纯黑/纯白/跟随系统
+            **📱 使用 TrollStore 安装:**
+            1. 下载下方 OneKit.ipa
+            2. 分享到 TrollStore
+            3. 点击 Install
 
-            ### 安装说明
-            此 IPA 未签名，请使用以下方式安装：
-            1. **TrollStore** — 直接安装 (推荐，无需电脑)
-            2. **AltStore / Sideloadly** — 使用 Apple ID 签名后安装
-            3. **Xcode** — 连接设备直接运行 (Development)
+            ### 功能
+            - 🔤 SF Symbols 浏览器
+            - 📲 AppStore 图标下载
+            - 🎨 调色板工具
+            - 🌗 主题切换
           files: ${{ env.PROJECT_NAME }}.ipa
           draft: false
           prerelease: false
@@ -117,7 +173,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ============================================================
-  # Job 2: Simulator 编译验证
+  # Job 2: Simulator 验证
   # ============================================================
   build-simulator:
     needs: build-ipa
@@ -134,10 +190,10 @@ jobs:
       - name: 💾 Install XcodeGen
         run: brew install xcodegen
 
-      - name: 📦 Generate Xcode Project
+      - name: 📦 Generate Project
         run: xcodegen generate
 
-      - name: ✅ Build for Simulator
+      - name: ✅ Simulator Build
         run: |
           xcodebuild build \
             -project ${{ env.PROJECT_NAME }}.xcodeproj \
@@ -147,4 +203,4 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO 2>&1 | tail -10
-          echo "✅ Simulator build succeeded!"
+          echo "✅ Simulator build OK!"
