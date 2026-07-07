@@ -2,78 +2,47 @@ import SwiftUI
 import CommonCrypto
 
 enum CodecTab: String, CaseIterable {
-    case json = "JSON"
-    case base64 = "Base64"
-    case url = "URL"
-    case unicode = "Unicode"
-    case hash = "Hash"
-
-    var icon: String {
-        switch self {
-        case .json: return "curlybraces"
-        case .base64: return "lock.shield"
-        case .url: return "link"
-        case .unicode: return "character"
-        case .hash: return "number"
-        }
-    }
+    case json = "JSON"; case base64 = "Base64"; case url = "URL"; case unicode = "Unicode"; case hash = "Hash"
+    var icon: String { switch self { case .json: return "curlybraces"; case .base64: return "lock.shield"; case .url: return "link"; case .unicode: return "character"; case .hash: return "number" } }
 }
 
 @MainActor
 class CodecViewModel: ObservableObject {
-    @Published var inputText = ""
-    @Published var outputText = ""
-    @Published var errorMessage: String?
-    @Published var showError = false
-    @Published var selectedTab: CodecTab = .json
+    @Published var inputText = ""; @Published var outputText = ""; @Published var errorMessage: String?; @Published var showError = false; @Published var selectedTab: CodecTab = .json
 
     func process() {
         switch selectedTab {
         case .json: formatJSON()
-        case .base64: base64()
+        case .base64: base64Encode()
         case .url: urlCodec()
         case .unicode: unicodeCodec()
         case .hash: hashText()
         }
     }
 
-    // MARK: - JSON
     private func formatJSON() {
-        guard let data = inputText.data(using: .utf8), !data.isEmpty else {
-            showError(msg: "请输入 JSON")
-            return
-        }
+        guard let d = inputText.data(using: .utf8), !d.isEmpty else { return showErr("请输入 JSON") }
         do {
-            let obj = try JSONSerialization.jsonObject(with: data)
+            let obj = try JSONSerialization.jsonObject(with: d)
             let pretty = try JSONSerialization.data(withJSONObject: obj, options: [.prettyPrinted, .sortedKeys])
-            outputText = String(data: pretty, encoding: .utf8) ?? ""
-            success()
-        } catch {
-            showError(msg: "JSON 错误: \(error.localizedDescription)")
-        }
+            outputText = String(data: pretty, encoding: .utf8) ?? ""; success()
+        } catch { showErr("JSON 错误: \(error.localizedDescription)") }
     }
 
-    // MARK: - Base64
-    private func base64() {
-        guard let data = inputText.data(using: .utf8), !data.isEmpty else {
-            showError(msg: "请输入内容"); return
-        }
-        outputText = data.base64EncodedString()
-        success()
+    private func base64Encode() {
+        guard let d = inputText.data(using: .utf8), !d.isEmpty else { return showErr("请输入内容") }
+        outputText = d.base64EncodedString(); success()
     }
 
     func base64Decode() {
-        guard !inputText.isEmpty else { showError(msg: "请输入 Base64"); return }
-        guard let data = Data(base64Encoded: inputText) ?? Data(base64Encoded: inputText.replacingOccurrences(of: "\n", with: "")),
-              let str = String(data: data, encoding: .utf8) else {
-            showError(msg: "无效的 Base64"); return
-        }
-        outputText = str; success()
+        guard !inputText.isEmpty else { return showErr("请输入 Base64") }
+        let cleaned = inputText.replacingOccurrences(of: "\n", with: "").replacingOccurrences(of: " ", with: "")
+        guard let d = Data(base64Encoded: cleaned), let s = String(data: d, encoding: .utf8) else { return showErr("无效的 Base64") }
+        outputText = s; success()
     }
 
-    // MARK: - URL
     private func urlCodec() {
-        guard !inputText.isEmpty else { showError(msg: "请输入内容"); return }
+        guard !inputText.isEmpty else { return showErr("请输入内容") }
         if inputText.contains("%") {
             outputText = inputText.removingPercentEncoding ?? inputText
         } else {
@@ -82,82 +51,44 @@ class CodecViewModel: ObservableObject {
         success()
     }
 
-    // MARK: - Unicode
     private func unicodeCodec() {
-        guard !inputText.isEmpty else { showError(msg: "请输入内容"); return }
-        // 检测是 \\u 编码还是中文
+        guard !inputText.isEmpty else { return showErr("请输入内容") }
         if inputText.contains("\\u") {
-            // 解码: 中文 → 中文
-            let decoded = inputText.replacingOccurrences(of: "\\u", with: "\\u")
-            if let data = decoded.data(using: .utf8),
-               let str = String(data: data, encoding: .nonLossyASCII) {
-                outputText = str
-            } else {
-                // 手动解析
-                var result = inputText
-                let pattern = #"\\u([0-9a-fA-F]{4})"#
-                if let regex = try? NSRegularExpression(pattern: pattern) {
-                    result = regex.stringByReplacingMatches(in: result, range: NSRange(location: 0, length: result.utf16.count), withTemplate: { match in
-                        let code = (result as NSString).substring(with: match.range(at: 1))
-                        let scalar = UInt32(code, radix: 16) ?? 0
-                        return String(UnicodeScalar(scalar) ?? "?")
-                    })
+            // 解码 \uXXXX → 中文
+            var result = ""
+            var pos = inputText.startIndex
+            let pattern = #"\\u([0-9a-fA-F]{4})"#
+            if let regex = try? NSRegularExpression(pattern: pattern) {
+                let matches = regex.matches(in: inputText, range: NSRange(location: 0, length: inputText.utf16.count))
+                for m in matches {
+                    guard let r = Range(m.range, in: inputText), let hr = Range(m.range(at: 1), in: inputText) else { continue }
+                    result += inputText[pos..<r.lowerBound]
+                    let scalar = UInt32(inputText[hr], radix: 16) ?? 0
+                    result += String(UnicodeScalar(scalar) ?? "?")
+                    pos = r.upperBound
                 }
-                outputText = result
             }
+            result += inputText[pos...]
+            outputText = result
         } else {
-            // 编码: 中文 → 中文
-            if let data = inputText.data(using: .nonLossyASCII),
-               let str = String(data: data, encoding: .utf8) {
-                outputText = str
-            } else {
-                outputText = inputText.unicodeScalars.map { String(format: "\\u%04X", $0.value) }.joined()
-            }
+            // 编码中文 → \uXXXX
+            outputText = inputText.unicodeScalars.map { $0.isASCII ? String($0) : String(format: "\\u%04X", $0.value) }.joined()
         }
         success()
     }
 
-    // MARK: - Hash
     private func hashText() {
-        guard let data = inputText.data(using: .utf8), !data.isEmpty else {
-            showError(msg: "请输入内容"); return
-        }
-        var md5 = Data(count: Int(CC_MD5_DIGEST_LENGTH))
+        guard let d = inputText.data(using: .utf8), !d.isEmpty else { return showErr("请输入内容") }
         var sha1 = Data(count: Int(CC_SHA1_DIGEST_LENGTH))
         var sha256 = Data(count: Int(CC_SHA256_DIGEST_LENGTH))
-
-        _ = md5.withUnsafeMutableBytes { md5Bytes in
-            data.withUnsafeBytes { dataBytes in
-                CC_MD5(dataBytes.baseAddress, CC_LONG(data.count), md5Bytes.bindMemory(to: UInt8.self).baseAddress)
-            }
-        }
-        _ = sha1.withUnsafeMutableBytes { sha1Bytes in
-            data.withUnsafeBytes { dataBytes in
-                CC_SHA1(dataBytes.baseAddress, CC_LONG(data.count), sha1Bytes.bindMemory(to: UInt8.self).baseAddress)
-            }
-        }
-        _ = sha256.withUnsafeMutableBytes { sha256Bytes in
-            data.withUnsafeBytes { dataBytes in
-                CC_SHA256(dataBytes.baseAddress, CC_LONG(data.count), sha256Bytes.bindMemory(to: UInt8.self).baseAddress)
-            }
-        }
-
-        outputText = """
-        MD5:    \(md5.map { String(format: "%02x", $0) }.joined())
-        SHA1:   \(sha1.map { String(format: "%02x", $0) }.joined())
-        SHA256: \(sha256.map { String(format: "%02x", $0) }.joined())
-        """
+        _ = sha1.withUnsafeMutableBytes { b in d.withUnsafeBytes { CC_SHA1($0.baseAddress, CC_LONG(d.count), b.bindMemory(to: UInt8.self).baseAddress) } }
+        _ = sha256.withUnsafeMutableBytes { b in d.withUnsafeBytes { CC_SHA256($0.baseAddress, CC_LONG(d.count), b.bindMemory(to: UInt8.self).baseAddress) } }
+        outputText = "SHA1:   \(sha1.map { String(format: "%02x", $0) }.joined())\nSHA256: \(sha256.map { String(format: "%02x", $0) }.joined())"
         success()
     }
 
-    func copyOutput() {
-        guard !outputText.isEmpty else { return }
-        UIPasteboard.general.string = outputText
-        Haptic.success()
-    }
-
+    func copyOutput() { guard !outputText.isEmpty else { return }; UIPasteboard.general.string = outputText; Haptic.success() }
     func clear() { inputText = ""; outputText = ""; errorMessage = nil; showError = false }
-
-    private func showError(msg: String) { errorMessage = msg; showError = true; Haptic.error() }
+    private func showErr(_ msg: String) { errorMessage = msg; showError = true; Haptic.error() }
     private func success() { errorMessage = nil; showError = false; Haptic.success() }
 }
