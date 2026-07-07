@@ -8,17 +8,17 @@ struct HomeView: View {
     @State private var pwdLoading = true
 
     var body: some View {
-        NavigationStack {
-            if isEditing {
+        if isEditing {
+            NavigationStack {
                 editView
-                    .navigationTitle("编辑").navigationBarTitleDisplayMode(.inline)
-                    .toolbar { ToolbarItem(placement: .navigationBarTrailing) { Button("完成") { withAnimation { isEditing = false } }.foregroundColor(.appForeground) } }
-                    .id("edit")
-            } else {
+                .navigationTitle("编辑").navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .navigationBarTrailing) { Button("完成") { withAnimation { isEditing = false } }.foregroundColor(.appForeground) } }
+            }
+        } else {
+            NavigationStack {
                 normalView
-                    .navigationTitle("OneKit").navigationBarTitleDisplayMode(.large)
-                    .toolbar { ToolbarItem(placement: .navigationBarTrailing) { Button("编辑") { withAnimation { isEditing = true } }.foregroundColor(.appForeground) } }
-                    .id("normal")
+                .navigationTitle("OneKit").navigationBarTitleDisplayMode(.large)
+                .toolbar { ToolbarItem(placement: .navigationBarTrailing) { Button("编辑") { withAnimation { isEditing = true } }.foregroundColor(.appForeground) } }
             }
         }
     }
@@ -50,13 +50,11 @@ struct HomeView: View {
                 if pwdLoading { ProgressView().scaleEffect(0.7) }
                 Button { showPwd = false } label: { Image(systemName: "xmark").font(.caption2).foregroundColor(.appSecondary).frame(width: 24, height: 24).background(Color.appCard).clipShape(Circle()) }
             }
-            if let data = pwdData {
+            if let d = pwdData {
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
-                    ForEach(data.codes) { p in
-                        VStack(spacing: 2) {
-                            Text(p.name).font(.system(size: 8)).foregroundColor(.appSecondary).lineLimit(1)
-                            Text(p.code).font(.system(size: 16, design: .monospaced)).fontWeight(.bold).foregroundColor(.appForeground)
-                        }.padding(6).frame(maxWidth: .infinity).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 6)).onTapGesture { UIPasteboard.general.string = p.code; Haptic.success() }
+                    ForEach(d.codes) { p in
+                        VStack(spacing: 2) { Text(p.name).font(.system(size: 8)).foregroundColor(.appSecondary).lineLimit(1); Text(p.code).font(.system(size: 16, design: .monospaced)).fontWeight(.bold).foregroundColor(.appForeground) }
+                            .padding(6).frame(maxWidth: .infinity).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 6)).onTapGesture { UIPasteboard.general.string = p.code; Haptic.success() }
                     }
                 }
             }
@@ -68,25 +66,18 @@ struct HomeView: View {
             Section { Toggle(isOn: $showPwd) { HStack { Image(systemName: "lock.shield").foregroundColor(.orange); Text("显示三角洲密码") } } }
             Section(header: Text("已显示 (\(qlManager.visibleTools.count))")) {
                 ForEach(qlManager.visibleTools) { tool in
-                    HStack(spacing: 12) {
-                        Image(systemName: tool.icon).foregroundColor(Color.iconTint(for: tool.color)).frame(width: 28)
-                        VStack(alignment: .leading, spacing: 2) { Text(tool.title).font(.body).foregroundColor(.appForeground); Text(tool.subtitle).font(.caption).foregroundColor(.appSecondary) }
-                    }
+                    HStack(spacing: 12) { Image(systemName: tool.icon).foregroundColor(Color.iconTint(for: tool.color)).frame(width: 28); VStack(alignment: .leading, spacing: 2) { Text(tool.title).font(.body).foregroundColor(.appForeground); Text(tool.subtitle).font(.caption).foregroundColor(.appSecondary) } }
+                }.onMove { from, to in qlManager.move(from: from, to: to) }.onDelete { idx in
+                    let toRemove = idx.map { qlManager.visibleTools[$0] }
+                    for tool in toRemove { qlManager.toggleTool(tool) }
                 }
-                .onMove { from, to in qlManager.move(from: from, to: to) }
-                .onDelete { idx in for i in idx where i < qlManager.visibleTools.count { qlManager.toggleTool(qlManager.visibleTools[i]) } }
             }
             Section(header: Text("未显示")) {
                 ForEach(qlManager.allAvailable.filter { t in !qlManager.visibleTools.contains(where: { $0.id == t.id }) }) { tool in
-                    HStack(spacing: 12) {
-                        Image(systemName: tool.icon).foregroundColor(Color.iconTint(for: tool.color)).frame(width: 28)
-                        VStack(alignment: .leading, spacing: 2) { Text(tool.title).font(.body).foregroundColor(.appForeground); Text(tool.subtitle).font(.caption).foregroundColor(.appSecondary) }
-                        Spacer(); Image(systemName: "plus.circle").foregroundColor(.appSecondary)
-                    }.contentShape(Rectangle()).onTapGesture { qlManager.addTool(tool) }
+                    HStack(spacing: 12) { Image(systemName: tool.icon).foregroundColor(Color.iconTint(for: tool.color)).frame(width: 28); VStack(alignment: .leading, spacing: 2) { Text(tool.title).font(.body).foregroundColor(.appForeground); Text(tool.subtitle).font(.caption).foregroundColor(.appSecondary) }; Spacer(); Image(systemName: "plus.circle").foregroundColor(.appSecondary) }.contentShape(Rectangle()).onTapGesture { qlManager.addTool(tool) }
                 }
             }
-        }
-        .listStyle(.insetGrouped).environment(\.editMode, .constant(.active))
+        }.listStyle(.insetGrouped).environment(\.editMode, .constant(.active))
     }
 
     struct ToolCardView: View {
@@ -105,8 +96,9 @@ struct HomeView: View {
         case "sf-symbols": SFSymbolsListView()
         case "appstore-icon": IconDownloaderView()
         case "color-palette": ColorPaletteView()
-        case "delta-force": DeltaForceView()
         case "codec": CodecView()
+        case "http-request": HttpRequestView()
+        case "delta-force": DeltaForceView()
         default: PlaceholderView(tool: tool)
         }
     }

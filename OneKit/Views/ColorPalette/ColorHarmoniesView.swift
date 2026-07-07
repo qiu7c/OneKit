@@ -28,7 +28,7 @@ struct ColorHarmoniesView: View {
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
-                            .foregroundColor(selectedType == type ? .white : .appForeground)
+                            .foregroundColor(selectedType == type ? Color.appBackground : .appForeground)
                             .background(selectedType == type ? Color.appForeground : Color.appCard)
                             .clipShape(Capsule())
                         }
