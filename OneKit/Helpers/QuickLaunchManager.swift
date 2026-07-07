@@ -2,48 +2,52 @@ import SwiftUI
 
 final class QuickLaunchManager: ObservableObject {
     static let shared = QuickLaunchManager()
-    private let saveKey = "quick_launch_tools_v2"
 
     @Published var visibleTools: [ToolItem] = []
 
     private init() {
+        load()
+    }
+
+    private func load() {
         let allTools = ToolItem.builtInTools.filter { $0.isBuiltIn }
-        if let data = UserDefaults.standard.data(forKey: saveKey),
-           let ids = try? JSONDecoder().decode([String].self, from: data),
-           !ids.isEmpty {
-            let ordered = ids.compactMap { id in allTools.first { $0.id == id } }
-            let remaining = allTools.filter { t in !ids.contains(t.id) }
-            visibleTools = ordered + remaining
-        } else {
+        guard let data = UserDefaults.standard.data(forKey: "ql_tools"),
+              let ids = try? JSONDecoder().decode([String].self, from: data),
+              !ids.isEmpty else {
             visibleTools = allTools
+            return
         }
+        let ordered = ids.compactMap { id in allTools.first { $0.id == id } }
+        let remaining = allTools.filter { t in !ids.contains(t.id) }
+        visibleTools = ordered + remaining
+        // 验证是否成功加载
+        print("[QL] Loaded \(visibleTools.count) tools from UserDefaults")
     }
 
     func toggleTool(_ tool: ToolItem) {
         visibleTools.removeAll { $0.id == tool.id }
-        saveToDisk()
+        save()
     }
 
     func addTool(_ tool: ToolItem) {
-        if !visibleTools.contains(where: { $0.id == tool.id }) {
-            visibleTools.append(tool)
-            saveToDisk()
-        }
+        guard !visibleTools.contains(where: { $0.id == tool.id }) else { return }
+        visibleTools.append(tool)
+        save()
     }
 
     func move(from source: IndexSet, to destination: Int) {
         visibleTools.move(fromOffsets: source, toOffset: destination)
-        saveToDisk()
+        save()
     }
 
     var allAvailable: [ToolItem] {
         ToolItem.builtInTools.filter { $0.isBuiltIn }
     }
 
-    private func saveToDisk() {
+    private func save() {
         let ids = visibleTools.map { $0.id }
-        if let data = try? JSONEncoder().encode(ids) {
-            UserDefaults.standard.set(data, forKey: saveKey)
-        }
+        guard let data = try? JSONEncoder().encode(ids) else { return }
+        UserDefaults.standard.set(data, forKey: "ql_tools")
+        print("[QL] Saved \(ids.count) tools")
     }
 }
