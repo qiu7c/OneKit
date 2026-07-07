@@ -127,7 +127,7 @@ extension MissAVViewModel {
 // MARK: - WKNavigationDelegate
 extension MissAVViewModel: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        guard let url = webView.url?.absoluteString else { return }
+        guard webView.url?.absoluteString != nil else { return }
 
         if searchContinuation != nil {
             // 搜索页加载完成 → 注入抓取脚本
@@ -370,9 +370,9 @@ extension MissAVViewModel {
     /// 从 URL 提取番号
     static func extractCode(from url: String) -> String? {
         // /cn/MIDV-XXX 或 /cn/abc/MIDV-XXX
-        let pattern = /[a-zA-Z]+-\d+/
-        if let match = url.firstMatch(of: pattern) {
-            return String(match.0).uppercased()
+        let pattern = "[a-zA-Z]+-\\d+"
+        if let range = url.range(of: pattern, options: .regularExpression) {
+            return String(url[range]).uppercased()
         }
         return nil
     }
