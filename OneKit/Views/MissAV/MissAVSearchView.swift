@@ -226,7 +226,7 @@ struct VideoCardView: View {
                     .padding(6)
             }
             .frame(maxWidth: .infinity)
-            .aspectRatio(3/4, contentMode: .fit)
+            .aspectRatio(2/3, contentMode: .fit)
             .clipShape(RoundedRectangle(cornerRadius: 10))
 
             Text(video.code)

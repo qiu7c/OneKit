@@ -364,6 +364,8 @@ extension MissAVViewModel {
                         const img = a.querySelector('img');
                         const title = img?.getAttribute('alt') || a.textContent.trim();
                         const cover = img?.getAttribute('data-src') || img?.src || '';
+                        // 必须有封面才可能是正片
+                        if (!cover) return;
                         const badges = Array.from(a.querySelectorAll('.badge, [class*="badge"], tag, [class*="tag"]'))
                             .map(b => b.textContent.trim()).filter(Boolean);
                         if (title && href && title.length < 200) {
@@ -379,6 +381,7 @@ extension MissAVViewModel {
                             const img = a.querySelector('img');
                             const title = img?.getAttribute('alt') || a.querySelector('[class*="title"]')?.textContent || a.textContent.trim();
                             const cover = img?.getAttribute('data-src') || img?.src || '';
+                            if (!cover) return;
                             const href = a.href.startsWith('http') ? a.href : '\(baseURL)' + a.href;
                             const badges = Array.from(a.querySelectorAll('[class*="badge"], [class*="tag"]'))
                                 .map(b => b.textContent.trim()).filter(Boolean);
@@ -407,125 +410,138 @@ extension MissAVViewModel {
     }
 
     /// 自动点击播放器 + 提取 m3u8（atDocumentEnd 自动执行）
-    /// 只在详情页（含 /cn/ 且不含 /search/）执行
+    /// MissAV 现在用自定义播放器（非 Plyr），改写策略
     private static let autoClickJS = """
     (() => {
-        if (window.__missavAutoClickInstalled) return;
-        window.__missavAutoClickInstalled = true;
+        // 只在顶层窗口执行（跳过广告 iframe）
+        if (window !== window.top) return;
+        // 只处理 missav 域名
+        if (location.href.indexOf('missav') === -1) return;
 
-        // ★★★★★ 只在详情页执行 ★★★★★
-        if (location.href.indexOf('/search/') !== -1 || location.href.indexOf('/actresses/') !== -1) {
-            window.webkit.messageHandlers.missavLog.postMessage('autoClick 跳过: 非详情页 ' + location.href);
-            return;
-        }
         window.webkit.messageHandlers.missavLog.postMessage('autoClick 启动: ' + location.href);
 
         // ---- 拦截 fetch/XHR ----
-        // 策略: 收集所有 m3u8 URL, 12 秒后报告最后一个(广告播完后的正片)
         var _allM3U8 = [];
-        var _adDomains = ['doubleclick', 'googlesyndication', 'adservice', 'adserver'];
+        var _reported = false;
 
         function captureM3U8(url) {
             if (!url || !url.indexOf) return;
             if (url.indexOf('playlist.m3u8') === -1 && url.indexOf('.m3u8') === -1) return;
-            // 过滤明显广告域名, 但不过滤 CDN (saawsedge 可能同时有广告和正片)
-            for (var i = 0; i < _adDomains.length; i++) {
-                if (url.indexOf(_adDomains[i]) !== -1) return;
-            }
             _allM3U8.push(url);
             window.webkit.messageHandlers.missavLog.postMessage('收集 m3u8 [' + _allM3U8.length + ']: ' + url);
+            // 发现 surrit 立即报告
+            if (url.indexOf('surrit') !== -1) {
+                window.webkit.messageHandlers.missavM3U8.postMessage(url);
+                window.webkit.messageHandlers.missavLog.postMessage('发现 surrit 正片: ' + url);
+                _reported = true;
+            }
         }
 
-        function reportM3U8() {
-            if (_allM3U8.length === 0) {
+        function reportBest() {
+            if (_reported) return;
+            if (_allM3U8.length > 0) {
+                // 优先 surrit
+                for (var i = 0; i < _allM3U8.length; i++) {
+                    if (_allM3U8[i].indexOf('surrit') !== -1) {
+                        window.webkit.messageHandlers.missavM3U8.postMessage(_allM3U8[i]);
+                        window.webkit.messageHandlers.missavLog.postMessage('最终报告 surrit: ' + _allM3U8[i]);
+                        return;
+                    }
+                }
+                // 没有 surrit 就取最后一个
+                var last = _allM3U8[_allM3U8.length - 1];
+                window.webkit.messageHandlers.missavM3U8.postMessage(last);
+                window.webkit.messageHandlers.missavLog.postMessage('最终报告(无surrit): ' + last);
+            } else {
                 var v = document.querySelector('video');
                 if (v && v.src) {
                     window.webkit.messageHandlers.missavM3U8.postMessage(v.src);
                     window.webkit.messageHandlers.missavLog.postMessage('兜底 video.src: ' + v.src);
                 }
-                return;
             }
-            // 优先选 surrit 的正片, 没有则取最后一个
-            var pick = _allM3U8[_allM3U8.length - 1];
-            for (var i = 0; i < _allM3U8.length; i++) {
-                if (_allM3U8[i].indexOf('surrit') !== -1) { pick = _allM3U8[i]; break; }
-            }
-            window.webkit.messageHandlers.missavM3U8.postMessage(pick);
-            window.webkit.messageHandlers.missavLog.postMessage('报告 m3u8 (共' + _allM3U8.length + '个, 优选surrit): ' + pick);
         }
 
+        // fetch 拦截
         var origFetch = window.fetch;
-        window.fetch = function() {
-            var url = arguments[0] && (typeof arguments[0] === 'string' ? arguments[0] : arguments[0].url);
-            if (url) captureM3U8(url);
-            return origFetch.apply(this, arguments);
-        };
+        if (origFetch) {
+            window.fetch = function() {
+                var url = arguments[0] && (typeof arguments[0] === 'string' ? arguments[0] : arguments[0].url);
+                if (url) captureM3U8(url);
+                return origFetch.apply(this, arguments);
+            };
+        }
 
+        // XHR 拦截
         var origOpen = XMLHttpRequest.prototype.open;
-        XMLHttpRequest.prototype.open = function(method, url) {
-            if (url) captureM3U8(url);
-            return origOpen.apply(this, arguments);
-        };
+        if (origOpen) {
+            XMLHttpRequest.prototype.open = function(method, url) {
+                if (url) captureM3U8(url);
+                return origOpen.apply(this, arguments);
+            };
+        }
 
-        // ---- MutationObserver ----
+        // MutationObserver
         var obs = new MutationObserver(function(muts) {
             for (var i = 0; i < muts.length; i++) {
                 var m = muts[i];
-                if (m.type === 'attributes' && m.attributeName === 'src') {
-                    captureM3U8(m.target.src);
-                }
+                if (m.type === 'attributes' && m.attributeName === 'src' && m.target) captureM3U8(m.target.src);
             }
         });
         obs.observe(document, { subtree: true, attributes: true, attributeFilter: ['src'] });
 
-        // ---- 等 .plyr → 点击 → 轮询 ----
-        var pollInterval = setInterval(function() {
-            var player = document.querySelector('.plyr, [class*="plyr"]');
-            if (player) {
-                clearInterval(pollInterval);
-                window.webkit.messageHandlers.missavLog.postMessage('找到 .plyr 播放器');
+        // ---- 等 video 出现后点击播放 ----
+        var ready = false;
+        var pollVideo = setInterval(function() {
+            if (ready) { clearInterval(pollVideo); return; }
+            // 找到 video 元素或者播放按钮
+            var v = document.querySelector('video');
+            var playBtn = document.querySelector('[class*="play"], [class*="start"], [aria-label*="play"], [aria-label*="Play"]');
+            if (v || playBtn) {
+                ready = true;
+                clearInterval(pollVideo);
+                window.webkit.messageHandlers.missavLog.postMessage('找到 video/playBtn, 点击');
 
-                var rect = player.getBoundingClientRect();
-                var cx = rect.left + rect.width / 2;
-                var cy = rect.top + rect.height / 2;
-
-                function doClick(x, y) {
-                    player.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: x, clientY: y }));
-                    player.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: x, clientY: y }));
-                    player.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: x, clientY: y }));
-                    window.webkit.messageHandlers.missavLog.postMessage('坐标点击 (' + Math.round(x) + ',' + Math.round(y) + ')');
+                function clickEl(el) {
+                    var rect = el.getBoundingClientRect();
+                    var cx = rect.left + rect.width / 2;
+                    var cy = rect.top + rect.height / 2;
+                    el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: cx, clientY: cy }));
+                    el.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: cx, clientY: cy }));
+                    el.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: cx, clientY: cy }));
                 }
 
-                doClick(cx, cy);
-                setTimeout(function() {
-                    if (_allM3U8.length === 0) { doClick(cx, cy); window.webkit.messageHandlers.missavLog.postMessage('重试点击'); }
-                }, 2000);
+                if (v) clickEl(v);
+                if (playBtn) clickEl(playBtn);
 
+                // 点击后轮询 15 秒
                 var waited = 0;
-                var checkInterval = setInterval(function() {
+                var check = setInterval(function() {
                     waited++;
-                    var v = document.querySelector('video');
-                    if (v && v.src && v.src.indexOf('.m3u8') !== -1) captureM3U8(v.src);
-                    if (waited >= 12) {
-                        clearInterval(checkInterval);
-                        window.webkit.messageHandlers.missavLog.postMessage('轮询 12s 结束, 共收集 ' + _allM3U8.length + ' 个');
-                        reportM3U8();
+                    if (_reported) { clearInterval(check); return; }
+                    var v2 = document.querySelector('video');
+                    if (v2 && v2.src && v2.src.indexOf('.m3u8') !== -1) captureM3U8(v2.src);
+                    if (waited >= 15) {
+                        clearInterval(check);
+                        window.webkit.messageHandlers.missavLog.postMessage('轮询 15s 结束');
+                        reportBest();
                     }
                 }, 1000);
             }
         }, 500);
 
+        // 兜底: 8 秒还没找到 video, 点击页面中心
         setTimeout(function() {
-            if (!document.querySelector('.plyr, [class*="plyr"]')) {
-                window.webkit.messageHandlers.missavLog.postMessage('10s 无 .plyr，点击 body 并等待 6s');
+            if (!ready) {
+                window.webkit.messageHandlers.missavLog.postMessage('8s 未找到 video，点击页面中心');
                 document.body && document.body.click();
+                ready = true;
                 setTimeout(function() {
                     var v = document.querySelector('video');
-                    if (v && v.src && v.src.indexOf('.m3u8') !== -1) captureM3U8(v.src);
-                    reportM3U8();
-                }, 6000);
+                    if (v && v.src) captureM3U8(v.src);
+                    reportBest();
+                }, 7000);
             }
-        }, 10000);
+        }, 8000);
     })();
     """
 }
