@@ -2,13 +2,10 @@ import SwiftUI
 
 struct ContentView: View {
     @State private var selectedTab: Tab = .home
-
-    enum Tab: String, CaseIterable {
-        case home = "主页"; case tools = "工具"; case settings = "设置"
+    enum Tab: String, CaseIterable { case home = "主页"; case tools = "工具"; case settings = "设置"
         var icon: String { switch self { case .home: return "square.grid.2x2"; case .tools: return "wrench.and.screwdriver"; case .settings: return "gearshape" } }
         var activeIcon: String { switch self { case .home: return "square.grid.2x2.fill"; case .tools: return "wrench.and.screwdriver.fill"; case .settings: return "gearshape.fill" } }
     }
-
     var body: some View {
         TabView(selection: $selectedTab) {
             HomeView().tabItem { Label(Tab.home.rawValue, systemImage: selectedTab == .home ? Tab.home.activeIcon : Tab.home.icon) }.tag(Tab.home)
@@ -25,9 +22,7 @@ struct ToolsListView: View {
             List {
                 ForEach(ToolCategory.allCases, id: \.self) { cat in
                     let items = tools.filter { $0.category == cat }
-                    if !items.isEmpty {
-                        Section { ForEach(items) { tool in NavigationLink(value: tool) { ToolRowView(tool: tool) } } } header: { Label(cat.rawValue, systemImage: cat.icon).font(.subheadline).foregroundColor(.appSecondary) }
-                    }
+                    if !items.isEmpty { Section { ForEach(items) { tool in NavigationLink(value: tool) { ToolRowView(tool: tool) } } } header: { Label(cat.rawValue, systemImage: cat.icon).font(.subheadline).foregroundColor(.appSecondary) } }
                 }
             }
             .listStyle(.insetGrouped).navigationTitle("所有工具").navigationBarTitleDisplayMode(.large)
@@ -37,6 +32,7 @@ struct ToolsListView: View {
                 case "appstore-icon": IconDownloaderView()
                 case "color-palette": ColorPaletteView()
                 case "delta-force": DeltaForceView()
+                case "codec": CodecView()
                 default: PlaceholderView(tool: tool)
                 }
             }
@@ -63,7 +59,7 @@ struct PlaceholderView: View {
             Image(systemName: tool.icon).font(.system(size: 60)).foregroundColor(.appSecondary)
             Text(tool.title).font(.title2).fontWeight(.bold)
             Text(tool.subtitle).font(.body).foregroundColor(.appSecondary).multilineTextAlignment(.center).padding(.horizontal)
-            Text("⚒️ 开发中，敬请期待").font(.caption).foregroundColor(.appSecondary).padding(.horizontal, 16).padding(.vertical, 8).background(Color.appCard).clipShape(Capsule())
+            Text("⚒️ 开发中").font(.caption).foregroundColor(.appSecondary).padding(.horizontal, 16).padding(.vertical, 8).background(Color.appCard).clipShape(Capsule())
         }.frame(maxWidth: .infinity, maxHeight: .infinity).background(Color.appBackground).navigationTitle(tool.title).navigationBarTitleDisplayMode(.inline)
     }
 }
@@ -76,19 +72,10 @@ struct SettingsView: View {
                 Section {
                     VStack(spacing: 8) { Image(systemName: "square.3.layers.3d").font(.system(size: 40)).foregroundColor(.appForeground); Text("OneKit").font(.title2).fontWeight(.bold); Text("v1.0.0").font(.caption).foregroundColor(.appSecondary) }.frame(maxWidth: .infinity).padding(.vertical, 20)
                 }.listRowBackground(Color.clear)
-
-                Section("主题") {
-                    ForEach(AppTheme.allCases) { theme in
-                        Button { themeManager.currentTheme = theme; Haptic.selection() } label: {
-                            HStack(spacing: 12) { Image(systemName: theme.icon).font(.body).foregroundColor(.appForeground).frame(width: 24); Text(theme.rawValue).font(.body).foregroundColor(.appForeground); Spacer(); if themeManager.currentTheme == theme { Image(systemName: "checkmark").font(.caption).foregroundColor(.appForeground) } }
-                        }
-                    }
-                }
-
+                Section("主题") { ForEach(AppTheme.allCases) { t in Button { themeManager.currentTheme = t; Haptic.selection() } label: { HStack(spacing: 12) { Image(systemName: t.icon).font(.body).foregroundColor(.appForeground).frame(width: 24); Text(t.rawValue).font(.body).foregroundColor(.appForeground); Spacer(); if themeManager.currentTheme == t { Image(systemName: "checkmark").font(.caption).foregroundColor(.appForeground) } } } } }
                 Section("关于") { LabeledContent("包名", value: "com.cc.OneKit"); LabeledContent("平台", value: "iOS 16+"); LabeledContent("技术栈", value: "SwiftUI") }
                 Section { Link(destination: URL(string: "https://github.com/qiu7c/OneKit")!) { Label("GitHub 仓库", systemImage: "chevron.left.forwardslash.chevron.right") } }
-            }
-            .listStyle(.insetGrouped).navigationTitle("设置").navigationBarTitleDisplayMode(.large)
+            }.listStyle(.insetGrouped).navigationTitle("设置").navigationBarTitleDisplayMode(.large)
         }
     }
 }

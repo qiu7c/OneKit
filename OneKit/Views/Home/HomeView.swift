@@ -21,10 +21,9 @@ struct HomeView: View {
                 if showPwd { pwdCard }
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                     ForEach(qlManager.visibleTools) { tool in
-                        NavigationLink { destinationView(for: tool) } label: { ToolCardView(tool: tool) }.buttonStyle(.plain)
+                        NavigationLink { dest(tool) } label: { ToolCardView(tool: tool) }.buttonStyle(.plain)
                     }
-                }
-                .padding(.horizontal, 16)
+                }.padding(.horizontal, 16)
                 if qlManager.visibleTools.isEmpty {
                     VStack(spacing: 12) { Image(systemName: "square.grid.2x2").font(.system(size: 40)).foregroundColor(.appSecondary.opacity(0.5)); Text("点击右上角「编辑」添加工具").font(.body).foregroundColor(.appSecondary) }.frame(maxWidth: .infinity).padding(.vertical, 40)
                 }
@@ -32,11 +31,7 @@ struct HomeView: View {
         }
         .background(Color.appBackground)
         .toolbar { ToolbarItem(placement: .navigationBarTrailing) { Button("编辑") { withAnimation { isEditing = true } }.foregroundColor(.appForeground) } }
-        .task {
-            pwdLoading = true
-            if let data = try? await DeltaForceService.shared.fetchDailyPasswords() { pwdData = data }
-            pwdLoading = false
-        }
+        .task { pwdLoading = true; if let d = try? await DeltaForceService.shared.fetchDailyPasswords() { pwdData = d }; pwdLoading = false }
     }
 
     private var pwdCard: some View {
@@ -46,9 +41,7 @@ struct HomeView: View {
                 Text("三角洲今日密码").font(.subheadline).fontWeight(.semibold).foregroundColor(.appForeground)
                 Spacer()
                 if pwdLoading { ProgressView().scaleEffect(0.7) }
-                Button { showPwd = false } label: {
-                    Image(systemName: "xmark").font(.caption2).foregroundColor(.appSecondary).frame(width: 24, height: 24).background(Color.appCard).clipShape(Circle())
-                }
+                Button { showPwd = false } label: { Image(systemName: "xmark").font(.caption2).foregroundColor(.appSecondary).frame(width: 24, height: 24).background(Color.appCard).clipShape(Circle()) }
             }
             if let data = pwdData {
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
@@ -56,13 +49,11 @@ struct HomeView: View {
                         VStack(spacing: 2) {
                             Text(p.name).font(.system(size: 8)).foregroundColor(.appSecondary).lineLimit(1)
                             Text(p.code).font(.system(size: 16, design: .monospaced)).fontWeight(.bold).foregroundColor(.appForeground)
-                        }.padding(6).frame(maxWidth: .infinity).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 6))
-                            .onTapGesture { UIPasteboard.general.string = p.code; Haptic.success() }
+                        }.padding(6).frame(maxWidth: .infinity).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 6)).onTapGesture { UIPasteboard.general.string = p.code; Haptic.success() }
                     }
                 }
             }
-        }
-        .padding(12).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 14)).padding(.horizontal, 16)
+        }.padding(12).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 14)).padding(.horizontal, 16)
     }
 
     private var editView: some View {
@@ -88,8 +79,7 @@ struct HomeView: View {
                 }
             }
         }
-        .listStyle(.insetGrouped)
-        .environment(\.editMode, .constant(.active))
+        .listStyle(.insetGrouped).environment(\.editMode, .constant(.active))
     }
 
     struct ToolCardView: View {
@@ -99,19 +89,17 @@ struct HomeView: View {
                 Image(systemName: tool.icon).font(.title2).foregroundColor(Color.iconTint(for: tool.color)).frame(width: 32, height: 32).background(Color.iconTint(for: tool.color).opacity(0.08)).clipShape(RoundedRectangle(cornerRadius: 8))
                 Text(tool.title).font(.body).fontWeight(.semibold).foregroundColor(.appForeground).lineLimit(1)
                 Text(tool.subtitle).font(.caption).foregroundColor(.appSecondary).lineLimit(2)
-            }
-            .padding(12).frame(maxWidth: .infinity, alignment: .leading).frame(height: 110)
-            .background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 14))
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.appSeparator.opacity(0.3), lineWidth: 0.5))
+            }.padding(12).frame(maxWidth: .infinity, alignment: .leading).frame(height: 110).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 14)).overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.appSeparator.opacity(0.3), lineWidth: 0.5))
         }
     }
 
-    @ViewBuilder private func destinationView(for tool: ToolItem) -> some View {
+    @ViewBuilder func dest(_ tool: ToolItem) -> some View {
         switch tool.id {
         case "sf-symbols": SFSymbolsListView()
         case "appstore-icon": IconDownloaderView()
         case "color-palette": ColorPaletteView()
         case "delta-force": DeltaForceView()
+        case "codec": CodecView()
         default: PlaceholderView(tool: tool)
         }
     }
