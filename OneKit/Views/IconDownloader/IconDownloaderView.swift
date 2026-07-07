@@ -3,7 +3,6 @@ import SwiftUI
 struct IconDownloaderView: View {
     @StateObject private var viewModel = IconDownloadViewModel()
     @State private var selectedApp: ITunesApp?
-    @State private var showDetail = false
     @State private var showErrorPage = false
 
     var body: some View {
@@ -18,7 +17,7 @@ struct IconDownloaderView: View {
         .searchable(text: $viewModel.searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索 App 名称...")
         .onSubmit(of: .search) { Task { if await viewModel.search() { showErrorPage = true } } }
         .onChange(of: viewModel.searchText) { v in if v.isEmpty { viewModel.clearResults() } }
-        .fullScreenCover(isPresented: $showDetail) { if let app = selectedApp { IconPreviewView(app: app, viewModel: viewModel) } }
+        .fullScreenCover(item: $selectedApp) { app in IconPreviewView(app: app, viewModel: viewModel) }
         .fullScreenCover(isPresented: $showErrorPage) { ErrorPageView(message: viewModel.errorMessage) { showErrorPage = false; Task { if await viewModel.search() { showErrorPage = true } } } }
     }
 
@@ -34,7 +33,7 @@ struct IconDownloaderView: View {
         ScrollView {
             LazyVStack(spacing: 8) {
                 ForEach(viewModel.searchResults) { app in
-                    AppSearchResultRow(app: app, onTap: { selectedApp = app; showDetail = true; Haptic.light() })
+                    AppSearchResultRow(app: app, onTap: { selectedApp = app; Haptic.light() })
                 }
             }.padding(.vertical, 8)
         }

@@ -28,10 +28,7 @@ struct HomeView: View {
                 ForEach(qlManager.visibleTools) { tool in
                     HStack(spacing: 12) {
                         Image(systemName: tool.icon).foregroundColor(Color.iconTint(for: tool.color)).frame(width: 28)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(tool.title).font(.body).foregroundColor(.appForeground)
-                            Text(tool.subtitle).font(.caption).foregroundColor(.appSecondary)
-                        }
+                        VStack(alignment: .leading, spacing: 2) { Text(tool.title).font(.body).foregroundColor(.appForeground); Text(tool.subtitle).font(.caption).foregroundColor(.appSecondary) }
                     }
                 }
                 .onMove { from, to in qlManager.move(from: from, to: to) }
@@ -41,22 +38,16 @@ struct HomeView: View {
                 ForEach(qlManager.allAvailable.filter { t in !qlManager.visibleTools.contains(where: { $0.id == t.id }) }) { tool in
                     HStack(spacing: 12) {
                         Image(systemName: tool.icon).foregroundColor(Color.iconTint(for: tool.color)).frame(width: 28)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(tool.title).font(.body).foregroundColor(.appForeground)
-                            Text(tool.subtitle).font(.caption).foregroundColor(.appSecondary)
-                        }
-                        Spacer()
-                        Image(systemName: "plus.circle").foregroundColor(.appSecondary)
+                        VStack(alignment: .leading, spacing: 2) { Text(tool.title).font(.body).foregroundColor(.appForeground); Text(tool.subtitle).font(.caption).foregroundColor(.appSecondary) }
+                        Spacer(); Image(systemName: "plus.circle").foregroundColor(.appSecondary)
                     }.contentShape(Rectangle()).onTapGesture { qlManager.addTool(tool) }
                 }
             }
         }
         .listStyle(.insetGrouped)
-        .navigationTitle("编辑快捷启动").navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) { Button("完成") { withAnimation { isEditing = false } }.foregroundColor(.appForeground) }
-            ToolbarItem(placement: .navigationBarLeading) { EditButton() }
-        }
+        .environment(\.editMode, .constant(.active))
+        .navigationTitle("快捷启动").navigationBarTitleDisplayMode(.inline)
+        .toolbar { ToolbarItem(placement: .navigationBarTrailing) { Button("完成") { withAnimation { isEditing = false } }.foregroundColor(.appForeground) } }
     }
 
     private var headerSection: some View {
@@ -70,20 +61,13 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("快捷启动").font(.headline).fontWeight(.semibold).foregroundColor(.appForeground)
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(qlManager.visibleTools) { tool in
-                        NavigationLink { destinationView(for: tool) } label: { QuickToolCard(tool: tool) }.buttonStyle(.plain)
-                    }
-                }.padding(.horizontal, 2)
+                HStack(spacing: 10) { ForEach(qlManager.visibleTools) { tool in NavigationLink { destinationView(for: tool) } label: { QuickToolCard(tool: tool) }.buttonStyle(.plain) } }.padding(.horizontal, 2)
             }
         }
     }
 
     private var emptyHint: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "square.grid.2x2").font(.system(size: 40)).foregroundColor(.appSecondary.opacity(0.5))
-            Text("点击右上角「编辑」添加工具").font(.body).foregroundColor(.appSecondary)
-        }.frame(maxWidth: .infinity).padding(.vertical, 40)
+        VStack(spacing: 12) { Image(systemName: "square.grid.2x2").font(.system(size: 40)).foregroundColor(.appSecondary.opacity(0.5)); Text("点击右上角「编辑」添加工具").font(.body).foregroundColor(.appSecondary) }.frame(maxWidth: .infinity).padding(.vertical, 40)
     }
 
     @ViewBuilder private func destinationView(for tool: ToolItem) -> some View {
@@ -91,6 +75,7 @@ struct HomeView: View {
         case "sf-symbols": SFSymbolsListView()
         case "appstore-icon": IconDownloaderView()
         case "color-palette": ColorPaletteView()
+        case "delta-force": DeltaForceView()
         default: PlaceholderView(tool: tool)
         }
     }
@@ -100,8 +85,7 @@ struct QuickToolCard: View {
     let tool: ToolItem
     var body: some View {
         VStack(spacing: 8) {
-            Image(systemName: tool.icon).font(.title2).foregroundColor(Color.iconTint(for: tool.color))
-                .frame(width: 40, height: 40).background(Color.iconTint(for: tool.color).opacity(0.08)).clipShape(RoundedRectangle(cornerRadius: 10))
+            Image(systemName: tool.icon).font(.title2).foregroundColor(Color.iconTint(for: tool.color)).frame(width: 40, height: 40).background(Color.iconTint(for: tool.color).opacity(0.08)).clipShape(RoundedRectangle(cornerRadius: 10))
             Text(tool.title).font(.caption).fontWeight(.medium).foregroundColor(.appForeground).lineLimit(1)
             Text(tool.subtitle).font(.caption2).foregroundColor(.appSecondary).lineLimit(1)
         }.frame(width: 100).padding(12).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 14))
