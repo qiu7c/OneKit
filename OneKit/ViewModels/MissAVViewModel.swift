@@ -341,69 +341,38 @@ extension MissAVViewModel {
     private static func buildScrapeJS(baseURL: String) -> String {
         return """
         (() => {
-            window.webkit.messageHandlers.missavLog.postMessage('抓取脚本开始执行');
+            window.webkit.messageHandlers.missavLog.postMessage('抓取开始');
 
             const tryScrape = () => {
                 try {
-                    function isVideoURL(url) {
-                        // 必须包含 /cn/ 并且匹配番号格式 XXX-123
-                        if (!url || url.indexOf('/cn/') === -1) return false;
-                        // 排除非视频页
-                        if (url.indexOf('contact') !== -1 || url.indexOf('dmca') !== -1 || url.indexOf('actresses') !== -1 || url.indexOf('ranking') !== -1) return false;
-                        // 必须匹配番号正则
-                        return /[a-zA-Z]+-\\d+/.test(url);
-                    }
-
                     const results = [];
-                    const links = document.querySelectorAll('div.grid a');
-                    window.webkit.messageHandlers.missavLog.postMessage('找到 ' + links.length + ' 个 div.grid a');
-
-                    links.forEach(a => {
-                        const href = a.href.startsWith('http') ? a.href : '\(baseURL)' + a.href;
-                        if (!isVideoURL(href)) return;
-                        const img = a.querySelector('img');
-                        const title = img?.getAttribute('alt') || a.textContent.trim();
-                        const cover = img?.getAttribute('data-src') || img?.src || '';
-                        // 必须有封面才可能是正片
-                        if (!cover) return;
-                        const badges = Array.from(a.querySelectorAll('.badge, [class*="badge"], tag, [class*="tag"]'))
-                            .map(b => b.textContent.trim()).filter(Boolean);
-                        if (title && href && title.length < 200) {
-                            results.push({ title: title.trim(), coverURL: cover, detailURL: href, tags: badges });
-                        }
-                    });
-                    window.webkit.messageHandlers.missavLog.postMessage('过滤后得到 ' + results.length + ' 个视频');
-
-                    if (results.length === 0) {
-                        window.webkit.messageHandlers.missavLog.postMessage('div.grid a 未找到视频，尝试策略2');
-                        document.querySelectorAll('a[href*="/cn/"]').forEach(a => {
-                            if (!isVideoURL(a.href)) return;
-                            const img = a.querySelector('img');
-                            const title = img?.getAttribute('alt') || a.querySelector('[class*="title"]')?.textContent || a.textContent.trim();
-                            const cover = img?.getAttribute('data-src') || img?.src || '';
-                            if (!cover) return;
-                            const href = a.href.startsWith('http') ? a.href : '\(baseURL)' + a.href;
-                            const badges = Array.from(a.querySelectorAll('[class*="badge"], [class*="tag"]'))
-                                .map(b => b.textContent.trim()).filter(Boolean);
-                            if (title && href && title.length < 200) results.push({ title: title.trim(), coverURL: cover, detailURL: href, tags: badges });
+                    // 抓所有 div.grid a（只限制必须含 /cn/）
+                    document.querySelectorAll('div.grid a').forEach(a => {
+                        var href = a.href.indexOf('http') === 0 ? a.href : '\(baseURL)' + a.href;
+                        if (href.indexOf('/cn/') === -1) return;
+                        // 跳过明显非视频页
+                        if (href.indexOf('contact') !== -1 || href.indexOf('dmca') !== -1 || href.indexOf('actresses') !== -1 || href.indexOf('ranking') !== -1) return;
+                        var img = a.querySelector('img');
+                        var title = img ? img.getAttribute('alt') || img.getAttribute('title') || '' : '';
+                        var cover = img ? img.getAttribute('data-src') || img.src || '' : '';
+                        var badges = [];
+                        a.querySelectorAll('.badge, [class*="badge"], tag, [class*="tag"]').forEach(function(b) {
+                            var t = b.textContent.trim(); if (t) badges.push(t);
                         });
-                        window.webkit.messageHandlers.missavLog.postMessage('策略2 找到 ' + results.length + ' 个视频');
-                    }
-
-                    const seen = new Set();
-                    const unique = results.filter(r => {
-                        const key = r.title + r.detailURL;
-                        if (seen.has(key)) return false;
-                        seen.add(key);
-                        return true;
+                        if (title && href) results.push({ title: title.trim(), coverURL: cover, detailURL: href, tags: badges });
                     });
-                    window.webkit.messageHandlers.missavLog.postMessage('去重后发送 ' + unique.length + ' 个结果');
-                    window.webkit.messageHandlers.missavVideoList.postMessage(JSON.stringify({ items: unique }));
-                } catch(e) {
-                    window.webkit.messageHandlers.missavLog.postMessage('抓取错误: ' + e.message + ' ' + e.stack);
-                }
-            };
 
+                    // 去重
+                    var seen = {};
+                    var unique = results.filter(function(r) {
+                        var key = r.detailURL;
+                        if (seen[key]) return false; seen[key] = true; return true;
+                    });
+
+                    window.webkit.messageHandlers.missavLog.postMessage('发送 ' + unique.length + ' 个');
+                    window.webkit.messageHandlers.missavVideoList.postMessage(JSON.stringify({ items: unique }));
+                } catch(e) { window.webkit.messageHandlers.missavLog.postMessage('错误: ' + e.message); }
+            };
             setTimeout(tryScrape, 3000);
         })();
         """
