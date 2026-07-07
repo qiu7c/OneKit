@@ -3,8 +3,6 @@ import SwiftUI
 struct MissAVSearchView: View {
     @StateObject private var vm = MissAVViewModel.shared
     @State private var searchQuery = ""
-    @State private var showPlayer = false
-    @State private var playerURL: String?
     @State private var showDebug = false
 
     private let columns = [
@@ -23,11 +21,9 @@ struct MissAVSearchView: View {
             if case .searching = vm.state {
                 Spacer()
                 VStack(spacing: 16) {
-                    ProgressView()
-                        .scaleEffect(1.2)
+                    ProgressView().scaleEffect(1.2)
                     Text("正在搜索...")
-                        .font(.subheadline)
-                        .foregroundColor(.appSecondary)
+                        .font(.subheadline).foregroundColor(.appSecondary)
                 }
                 Spacer()
             } else if case .error(let e) = vm.state {
@@ -41,16 +37,9 @@ struct MissAVSearchView: View {
             } else {
                 // 结果统计
                 HStack {
-                    if case .extracting = vm.state {
-                        HStack(spacing: 6) {
-                            ProgressView().scaleEffect(0.7)
-                            Text("解析视频地址...").font(.caption).foregroundColor(.appSecondary)
-                        }
-                    }
                     Spacer()
                     Text("共 \(vm.videos.count) 部")
-                        .font(.caption)
-                        .foregroundColor(.appSecondary)
+                        .font(.caption).foregroundColor(.appSecondary)
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 6)
@@ -59,18 +48,19 @@ struct MissAVSearchView: View {
                 ScrollView {
                     LazyVGrid(columns: columns, spacing: 12) {
                         ForEach(vm.videos) { video in
-                            VideoCardView(video: video)
-                                .onTapGesture {
-                                    playVideo(video)
-                                }
-                                .opacity(isSelected(video) ? 0.6 : 1)
+                            NavigationLink {
+                                MissAVDetailView(video: video)
+                            } label: {
+                                VideoCardView(video: video)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                     .padding(.horizontal, 14)
                     .padding(.bottom, 20)
                 }
                 .refreshable {
-                    await refresh()
+                    if !vm.videos.isEmpty { await performSearch() }
                 }
             }
         }
@@ -80,26 +70,14 @@ struct MissAVSearchView: View {
         .toolbar(.hidden, for: .tabBar)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button {
-                    showDebug = true
-                } label: {
+                Button { showDebug = true } label: {
                     Image(systemName: "ladybug")
-                        .font(.subheadline)
-                        .foregroundColor(.appSecondary)
+                        .font(.subheadline).foregroundColor(.appSecondary)
                 }
             }
         }
-        .sheet(isPresented: $showDebug) {
-            debugView
-        }
-        .fullScreenCover(isPresented: $showPlayer) {
-            if let url = playerURL {
-                MissAVPlayerView(m3u8URL: url)
-            }
-        }
-        .onSubmit(of: .search) {
-            Task { await performSearch() }
-        }
+        .sheet(isPresented: $showDebug) { debugView }
+        .onSubmit(of: .search) { Task { await performSearch() } }
         .onAppear { vm.attachToWindow() }
         .onDisappear { vm.detachFromWindow() }
     }
@@ -109,21 +87,16 @@ struct MissAVSearchView: View {
         HStack(spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
-                    .font(.subheadline)
-                    .foregroundColor(.appSecondary)
+                    .font(.subheadline).foregroundColor(.appSecondary)
                 TextField("番号 / 演员名 / 关键词", text: $searchQuery)
-                    .font(.body)
-                    .foregroundColor(.appForeground)
+                    .font(.body).foregroundColor(.appForeground)
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
                     .submitLabel(.search)
                 if !searchQuery.isEmpty {
-                    Button {
-                        searchQuery = ""
-                    } label: {
+                    Button { searchQuery = "" } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.subheadline)
-                            .foregroundColor(.appSecondary)
+                            .font(.subheadline).foregroundColor(.appSecondary)
                     }
                     .buttonStyle(.plain)
                 }
@@ -133,14 +106,11 @@ struct MissAVSearchView: View {
             .background(Color.appCard)
             .clipShape(RoundedRectangle(cornerRadius: 10))
 
-            Button {
-                Task { await performSearch() }
-            } label: {
+            Button { Task { await performSearch() } } label: {
                 Text("搜索")
                     .font(.subheadline).fontWeight(.semibold)
                     .foregroundColor(Color.appBackground)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
+                    .padding(.horizontal, 16).padding(.vertical, 10)
                     .background(Color.appForeground)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
             }
@@ -156,12 +126,9 @@ struct MissAVSearchView: View {
                 .font(.system(size: 48))
                 .foregroundColor(.appSecondary.opacity(0.4))
             Text("搜索番号或演员名")
-                .font(.body)
-                .foregroundColor(.appSecondary)
+                .font(.body).foregroundColor(.appSecondary)
             Text("例如: MIDV-XXX 或 美谷朱里")
-                .font(.caption)
-                .foregroundColor(.appTertiary)
-            // 快捷搜索示例
+                .font(.caption).foregroundColor(.appTertiary)
             HStack(spacing: 8) {
                 ForEach(["FC2", "MIDV", "SSIS"], id: \.self) { tag in
                     Button(tag) {
@@ -171,8 +138,7 @@ struct MissAVSearchView: View {
                     .font(.caption).fontWeight(.medium)
                     .foregroundColor(Color.appBackground)
                     .padding(.horizontal, 14).padding(.vertical, 6)
-                    .background(Color.appForeground)
-                    .clipShape(Capsule())
+                    .background(Color.appForeground).clipShape(Capsule())
                     .buttonStyle(.plain)
                 }
             }
@@ -185,25 +151,19 @@ struct MissAVSearchView: View {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: 40))
                 .foregroundColor(.orange.opacity(0.7))
-            Text(msg)
-                .font(.body)
-                .foregroundColor(.appSecondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
-            Button("重试") {
-                Task { await performSearch() }
-            }
-            .fontWeight(.semibold)
-            .foregroundColor(Color.appBackground)
-            .padding(.horizontal, 32)
-            .padding(.vertical, 10)
-            .background(Color.appForeground)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .buttonStyle(.plain)
+            Text(msg).font(.body).foregroundColor(.appSecondary)
+                .multilineTextAlignment(.center).padding(.horizontal, 40)
+            Button("重试") { Task { await performSearch() } }
+                .fontWeight(.semibold)
+                .foregroundColor(Color.appBackground)
+                .padding(.horizontal, 32).padding(.vertical, 10)
+                .background(Color.appForeground)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .buttonStyle(.plain)
         }
     }
 
-    // MARK: - 操作
+    // MARK: - 搜索
     private func performSearch() async {
         let q = searchQuery.trimmingCharacters(in: .whitespaces)
         guard !q.isEmpty else { return }
@@ -215,42 +175,8 @@ struct MissAVSearchView: View {
                 vm.state = .loaded(count: results.count)
             }
         } catch {
-            await MainActor.run {
-                vm.state = .error(error.localizedDescription)
-            }
+            await MainActor.run { vm.state = .error(error.localizedDescription) }
         }
-    }
-
-    private func playVideo(_ video: MissAVMedia) {
-        if let existing = video.m3u8URL {
-            playerURL = existing
-            showPlayer = true
-            return
-        }
-        Task { @MainActor in
-            do {
-                let m3u8 = try await vm.extractM3U8(for: video)
-                if let idx = vm.videos.firstIndex(where: { $0.id == video.id }) {
-                    vm.videos[idx].m3u8URL = m3u8
-                }
-                playerURL = m3u8
-                showPlayer = true
-            } catch {
-                vm.state = .error("获取播放地址失败: \(error.localizedDescription)")
-            }
-        }
-    }
-
-    private func refresh() async {
-        if !vm.videos.isEmpty {
-            await performSearch()
-        }
-    }
-
-    private func isSelected(_ video: MissAVMedia) -> Bool {
-        guard vm.selectedVideo?.id == video.id else { return false }
-        if case .extracting = vm.state { return true }
-        return false
     }
 
     private func hideKeyboard() {
@@ -264,36 +190,28 @@ struct VideoCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
-            // 封面 - 用 GeometryReader 撑满列宽
+            // 封面 - 3:4 比例
             ZStack(alignment: .topTrailing) {
                 AsyncImage(url: URL(string: video.coverURL)) { phase in
                     switch phase {
                     case .success(let img):
                         img.resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 210)
+                            .aspectRatio(3/4, contentMode: .fill)
                             .clipped()
                     case .failure:
                         Rectangle()
                             .fill(Color.appCard)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 210)
-                            .overlay(
-                                Image(systemName: "photo")
-                                    .foregroundColor(.appSecondary)
-                            )
+                            .aspectRatio(3/4, contentMode: .fill)
+                            .overlay(Image(systemName: "photo").foregroundColor(.appSecondary))
                     case .empty:
                         Rectangle()
                             .fill(Color.appCard)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 210)
+                            .aspectRatio(3/4, contentMode: .fill)
                             .overlay(ProgressView())
                     @unknown default:
                         Rectangle()
                             .fill(Color.appCard)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 210)
+                            .aspectRatio(3/4, contentMode: .fill)
                     }
                 }
 
@@ -356,12 +274,5 @@ extension MissAVSearchView {
                 }
             }
         }
-    }
-}
-
-// MARK: - 预览
-#Preview {
-    NavigationStack {
-        MissAVSearchView()
     }
 }
