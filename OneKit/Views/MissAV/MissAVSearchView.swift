@@ -5,6 +5,7 @@ struct MissAVSearchView: View {
     @State private var searchQuery = ""
     @State private var showPlayer = false
     @State private var playerURL: String?
+    @State private var showDebug = false
 
     private let columns = [
         GridItem(.adaptive(minimum: 155), spacing: 12)
@@ -76,6 +77,20 @@ struct MissAVSearchView: View {
         .navigationTitle("影视探索")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    showDebug = true
+                } label: {
+                    Image(systemName: "ladybug")
+                        .font(.subheadline)
+                        .foregroundColor(.appSecondary)
+                }
+            }
+        }
+        .sheet(isPresented: $showDebug) {
+            debugView
+        }
         .fullScreenCover(isPresented: $showPlayer) {
             if let url = playerURL {
                 MissAVPlayerView(m3u8URL: url)
@@ -303,6 +318,39 @@ struct VideoCardView: View {
                 .lineLimit(2)
         }
         .frame(width: 155)
+    }
+}
+
+// MARK: - 调试面板
+extension MissAVSearchView {
+    private var debugView: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(vm.debugLog.reversed(), id: \.self) { line in
+                        Text(line)
+                            .font(.system(size: 9, design: .monospaced))
+                            .foregroundColor(.green)
+                            .lineLimit(nil)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 4)
+            }
+            .background(Color.black)
+            .navigationTitle("调试日志")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("关闭") { showDebug = false }
+                }
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("清空") { vm.debugLog.removeAll() }
+                }
+            }
+        }
     }
 }
 
