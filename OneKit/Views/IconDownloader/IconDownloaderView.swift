@@ -4,6 +4,7 @@ struct IconDownloaderView: View {
     @StateObject private var viewModel = IconDownloadViewModel()
     @State private var selectedApp: ITunesApp?
     @State private var showDetail = false
+    @State private var showErrorPage = false
 
     var body: some View {
         ZStack {
@@ -21,10 +22,11 @@ struct IconDownloaderView: View {
         .searchable(text: $viewModel.searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索 App 名称...")
         .onSubmit(of: .search) { Task { await viewModel.search() } }
         .onChange(of: viewModel.searchText) { v in if v.isEmpty { viewModel.clearResults() } }
+        .onChange(of: viewModel.showError) { v in if v { showErrorPage = true } }
         .sheet(isPresented: $showDetail) { if let app = selectedApp { IconPreviewView(app: app, viewModel: viewModel) } }
-        // 完全独立的错误页
-        .fullScreenCover(isPresented: $viewModel.showError) {
+        .fullScreenCover(isPresented: $showErrorPage) {
             ErrorPageView(message: viewModel.errorMessage) {
+                showErrorPage = false
                 viewModel.showError = false
                 Task { await viewModel.search() }
             }
@@ -50,7 +52,6 @@ struct IconDownloaderView: View {
     }
 }
 
-// MARK: - 独立错误页面
 struct ErrorPageView: View {
     @Environment(\.dismiss) var dismiss
     let message: String?
@@ -65,21 +66,14 @@ struct ErrorPageView: View {
                 Text(message?.isEmpty == false ? message! : "请检查网络连接后重试")
                     .font(.body).foregroundColor(.appSecondary).multilineTextAlignment(.center).padding(.horizontal, 40)
                 Spacer()
-                Button {
-                    dismiss()
-                    onRetry()
-                } label: {
+                Button { dismiss(); onRetry() } label: {
                     Text("重试").fontWeight(.semibold).foregroundColor(.white)
                         .frame(maxWidth: .infinity).frame(height: 50)
-                        .background(Color.appForeground).clipShape(RoundedRectangle(cornerRadius: 12))
-                        .padding(.horizontal, 40)
+                        .background(Color.appForeground).clipShape(RoundedRectangle(cornerRadius: 12)).padding(.horizontal, 40)
                 }
-                Button { dismiss() } label: {
-                    Text("取消").foregroundColor(.appSecondary).padding(.bottom, 20)
-                }
+                Button { dismiss() } label: { Text("取消").foregroundColor(.appSecondary).padding(.bottom, 20) }
             }
             .background(Color.appBackground)
-            .navigationTitle("错误").navigationBarTitleDisplayMode(.inline)
         }
     }
 }
