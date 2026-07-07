@@ -37,15 +37,13 @@ struct ColorPaletteView: View {
                 showColorPickerSheet = true
             }
         }
-        .fullScreenCover(isPresented: $showColorPickerSheet) {
-            if let img = pickedImage {
-                NavigationStack {
-                    ImageColorPickerView(image: img) { color in
-                        var r: CGFloat = 0; var g: CGFloat = 0; var b: CGFloat = 0; var a: CGFloat = 0
-                        UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
-                        viewModel.customRed = Double(r); viewModel.customGreen = Double(g); viewModel.customBlue = Double(b)
-                        viewModel.updateFromSliders()
-                    }
+        .sheet(isPresented: $showColorPickerSheet) {
+            NavigationStack {
+                ImageColorPickerView(image: pickedImage ?? UIImage()) { color in
+                    var r: CGFloat = 0; var g: CGFloat = 0; var b: CGFloat = 0; var a: CGFloat = 0
+                    UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
+                    viewModel.customRed = Double(r); viewModel.customGreen = Double(g); viewModel.customBlue = Double(b)
+                    viewModel.updateFromSliders()
                 }
             }
         }
@@ -54,17 +52,10 @@ struct ColorPaletteView: View {
     private var imageColorPickerSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("图片取色").font(.headline).fontWeight(.semibold).foregroundColor(.appForeground)
-            Button {
-                showImagePicker = true
-            } label: {
-                HStack {
-                    Image(systemName: "photo.on.rectangle").font(.body)
-                    Text("从照片取色 — 全屏触控取色")
-                }
-                .font(.subheadline).fontWeight(.medium)
-                .frame(maxWidth: .infinity).frame(height: 44)
-                .foregroundColor(.appForeground).background(Color.appCard)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+            Button { showImagePicker = true } label: {
+                HStack { Image(systemName: "photo.on.rectangle"); Text("从照片取色") }
+                    .font(.subheadline).fontWeight(.medium).frame(maxWidth: .infinity).frame(height: 44)
+                    .foregroundColor(.appForeground).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 10))
             }
         }
     }
@@ -91,10 +82,10 @@ struct ColorPaletteView: View {
         }
     }
 
-    private func infoChip(_ title: String, _ value: String) -> some View {
+    private func infoChip(_ t: String, _ v: String) -> some View {
         VStack(spacing: 4) {
-            Text(title).font(.system(size: 9)).fontWeight(.semibold).foregroundColor(.appTertiary)
-            Text(value).font(.system(size: 11, design: .monospaced)).foregroundColor(.appForeground).lineLimit(1).minimumScaleFactor(0.7)
+            Text(t).font(.system(size: 9)).fontWeight(.semibold).foregroundColor(.appTertiary)
+            Text(v).font(.system(size: 11, design: .monospaced)).foregroundColor(.appForeground).lineLimit(1).minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity).padding(10).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 10))
     }
@@ -114,7 +105,7 @@ struct ColorPaletteView: View {
                 HStack(spacing: 6) { Image(systemName: showCopied ? "checkmark" : "doc.on.doc"); Text(showCopied ? "已复制" : "复制 HEX") }.font(.subheadline).fontWeight(.medium).frame(maxWidth: .infinity).frame(height: 40).foregroundColor(.white).background(Color.appForeground).clipShape(RoundedRectangle(cornerRadius: 10))
             }
             Button { viewModel.copyRGB(viewModel.selectedColor) } label: {
-                HStack(spacing: 6) { Image(systemName: "doc.on.doc"); Text("复制 RGB") }.font(.subheadline).fontWeight(.medium).frame(maxWidth: .infinity).frame(height: 40).foregroundColor(.appForeground).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 10))
+                (Text("复制 RGB")).font(.subheadline).fontWeight(.medium).frame(maxWidth: .infinity).frame(height: 40).foregroundColor(.appForeground).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 10))
             }
             Button { withAnimation { viewModel.saveCurrentColor() } } label: {
                 Image(systemName: "heart").font(.body).foregroundColor(.appForeground).frame(width: 40, height: 40).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 10))
@@ -139,11 +130,11 @@ struct ColorPaletteView: View {
         .padding(16).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
-    private func sliderRow(_ label: String, _ color: Color, _ value: Binding<Double>) -> some View {
+    private func sliderRow(_ l: String, _ c: Color, _ v: Binding<Double>) -> some View {
         HStack {
-            Text(label).font(.caption).foregroundColor(.appSecondary).frame(width: 40, alignment: .leading)
-            Slider(value: value, in: 0...1).tint(color)
-            Text("\(Int(value.wrappedValue * 255))").font(.system(size: 11, design: .monospaced)).foregroundColor(.appSecondary).frame(width: 36, alignment: .trailing)
+            Text(l).font(.caption).foregroundColor(.appSecondary).frame(width: 40, alignment: .leading)
+            Slider(value: v, in: 0...1).tint(c)
+            Text("\(Int(v.wrappedValue * 255))").font(.system(size: 11, design: .monospaced)).foregroundColor(.appSecondary).frame(width: 36, alignment: .trailing)
         }
     }
 
