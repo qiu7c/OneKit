@@ -56,12 +56,16 @@ jobs:
             exit 1
           fi
 
-          # 复制 Info.plist 和资源
+          # 复制 Info.plist 并替换所有 $() 变量
           cp OneKit/Info.plist Payload/OneKit.app/
           plutil -replace CFBundleExecutable -string "OneKit" Payload/OneKit.app/Info.plist
           plutil -replace CFBundleIdentifier -string "com.cc.OneKit" Payload/OneKit.app/Info.plist
           plutil -replace CFBundleName -string "OneKit" Payload/OneKit.app/Info.plist
+          plutil -replace CFBundleShortVersionString -string "1.0.0" Payload/OneKit.app/Info.plist
+          plutil -replace CFBundleVersion -string "1" Payload/OneKit.app/Info.plist
           plutil -replace MinimumOSVersion -string "16.0" Payload/OneKit.app/Info.plist
+          plutil -replace CFBundleInfoDictionaryVersion -string "6.0" Payload/OneKit.app/Info.plist
+          plutil -replace CFBundlePackageType -string "APPL" Payload/OneKit.app/Info.plist
 
           # 创建 PkgInfo
           echo "APPL????" > Payload/OneKit.app/PkgInfo
@@ -72,10 +76,11 @@ jobs:
           echo "=== .app contents ==="
           find Payload/OneKit.app -maxdepth 2 -type f
 
-          # 打包
-          cd Payload && zip -r "../OneKit.ipa" "OneKit.app" -x "*.DS_Store"
-          cd .. && rm -rf Payload
-          echo "✅ IPA: $(ls -lh OneKit.ipa)"
+          # 打包 (注意: IPA 必须 Payload/xxx.app/ 结构)
+          zip -r OneKit.ipa Payload/ -x "*.DS_Store"
+          rm -rf Payload
+          echo "=== IPA structure ==="
+          unzip -l OneKit.ipa | head -10
 
       - uses: actions/upload-artifact@v4
         with:
