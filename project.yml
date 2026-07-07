@@ -1,0 +1,53 @@
+name: OneKit
+options:
+  bundleIdPrefix: com.cc
+  deploymentTarget:
+    iOS: "16.0"
+  xcodeVersion: "15.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    DEVELOPMENT_TEAM: ""
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    INFOPLIST_FILE: OneKit/Info.plist
+    INFOPLIST_KEY_CFBundleDisplayName: "OneKit"
+    INFOPLIST_KEY_UILaunchStoryboardName: ""
+    INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait"
+    INFOPLIST_KEY_LSApplicationCategoryType: ""
+    INFOPLIST_KEY_UIRequiredDeviceCapabilities: [arm64]
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+
+targets:
+  OneKit:
+    type: application
+    platform: iOS
+    sources:
+      - path: OneKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.cc.OneKit
+        SWIFT_ACTIVE_COMPILER_CONDITIONS: "$(inherited) DEBUG"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_VERSION: "5.7"
+    info:
+      path: OneKit/Info.plist
+    dependencies: []
+
+  OneKitTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: OneKitTests
+    dependencies:
+      - target: OneKit
+
+  OneKitUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: OneKitUITests
+    dependencies:
+      - target: OneKit
