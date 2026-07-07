@@ -4,6 +4,8 @@ struct MissAVSearchView: View {
     @StateObject private var vm = MissAVViewModel.shared
     @State private var searchQuery = ""
     @State private var showDebug = false
+    @State private var selectedVideo: MissAVMedia?
+    @State private var navigateToDetail = false
 
     private let columns = [
         GridItem(.flexible(), spacing: 10),
@@ -48,12 +50,16 @@ struct MissAVSearchView: View {
                 ScrollView {
                     LazyVGrid(columns: columns, spacing: 12) {
                         ForEach(vm.videos) { video in
-                            NavigationLink {
-                                MissAVDetailView(video: video)
-                            } label: {
-                                VideoCardView(video: video)
-                            }
-                            .buttonStyle(.plain)
+                            VideoCardView(video: video)
+                                .onTapGesture {
+                                    selectedVideo = video
+                                    navigateToDetail = true
+                                }
+                        }
+                    }
+                    .navigationDestination(isPresented: $navigateToDetail) {
+                        if let video = selectedVideo {
+                            MissAVDetailView(video: video)
                         }
                     }
                     .padding(.horizontal, 14)
@@ -189,48 +195,44 @@ struct VideoCardView: View {
     let video: MissAVMedia
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            // 封面 - 3:4 比例
+        VStack(alignment: .leading, spacing: 4) {
+            // 封面 - 3:4 比例，撑满列宽
             ZStack(alignment: .topTrailing) {
                 AsyncImage(url: URL(string: video.coverURL)) { phase in
                     switch phase {
                     case .success(let img):
                         img.resizable()
-                            .aspectRatio(3/4, contentMode: .fill)
+                            .aspectRatio(contentMode: .fill)
+                            .frame(maxWidth: .infinity, minHeight: 180)
                             .clipped()
                     case .failure:
                         Rectangle()
                             .fill(Color.appCard)
-                            .aspectRatio(3/4, contentMode: .fill)
                             .overlay(Image(systemName: "photo").foregroundColor(.appSecondary))
                     case .empty:
                         Rectangle()
                             .fill(Color.appCard)
-                            .aspectRatio(3/4, contentMode: .fill)
                             .overlay(ProgressView())
                     @unknown default:
-                        Rectangle()
-                            .fill(Color.appCard)
-                            .aspectRatio(3/4, contentMode: .fill)
+                        Rectangle().fill(Color.appCard)
                     }
                 }
 
-                // 标签
                 Text(video.tag.rawValue)
                     .font(.system(size: 9, weight: .bold))
                     .foregroundColor(.white)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
+                    .padding(.horizontal, 6).padding(.vertical, 3)
                     .background(Color(hex: video.tag.color))
                     .clipShape(Capsule())
                     .padding(6)
             }
+            .frame(maxWidth: .infinity)
+            .aspectRatio(3/4, contentMode: .fill)
             .clipShape(RoundedRectangle(cornerRadius: 10))
 
             // 番号
             Text(video.id)
-                .font(.caption2)
-                .fontWeight(.semibold)
+                .font(.caption2).fontWeight(.semibold)
                 .foregroundColor(.appSecondary)
                 .lineLimit(1)
 
@@ -240,6 +242,7 @@ struct VideoCardView: View {
                 .foregroundColor(.appForeground)
                 .lineLimit(2)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
