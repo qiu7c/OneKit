@@ -3,14 +3,11 @@ name: Build OneKit IPA
 on:
   push:
     branches: [ main, master, develop ]
-  pull_request:
-    branches: [ main, master ]
   workflow_dispatch:
 
 env:
   XCODE_VERSION: '15.2'
   PROJECT_NAME: OneKit
-  BUNDLE_ID: com.cc.OneKit
 
 jobs:
   build-ipa:
@@ -19,199 +16,98 @@ jobs:
       contents: write
 
     steps:
-      - name: 📥 Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: 🔧 Setup Xcode
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: ${{ env.XCODE_VERSION }}
+      - uses: maxim-lobanov/setup-xcode@v1
+        with: { xcode-version: "${{ env.XCODE_VERSION }}" }
 
-      - name: 💾 Install XcodeGen
-        run: brew install xcodegen
+      - run: brew install xcodegen && xcodegen generate && echo "✅ Project generated"
 
-      - name: 📦 Generate Xcode Project
-        run: xcodegen generate
-
-      # --------------------------------------------------
-      # 创建自签名证书 (TrollStore 构建需要)
-      # --------------------------------------------------
-      - name: 🔑 Create Self-Signed Certificate
+      # 创建自签名证书 (最小化)
+      - name: 🔑 Create Signing Certificate
         id: cert
         run: |
-          CERT_NAME="OneKit Dev"
+          security create-keychain -p "" build.keychain 2>/dev/null || true
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
 
-          # 1. 创建临时 keychain
-          security create-keychain -p temp temp.keychain 2>/dev/null || true
-          security default-keychain -s temp.keychain
-          security unlock-keychain -p temp temp.keychain
+          # openssl 生成证书
+          openssl req -x509 -nodes -newkey rsa:2048 -days 365 \
+            -subj "/CN=iPhone Developer: OneKit" \
+            -keyout /tmp/dev.key -out /tmp/dev.crt
 
-          # 2. 创建证书配置文件
-          cat > /tmp/cert.conf << 'CONF'
-          [ req ]
-          distinguished_name = req_distinguished_name
-          x509_extensions = v3_req
-          prompt = no
-          [ req_distinguished_name ]
-          CN = OneKit Dev
-          [ v3_req ]
-          keyUsage = critical,digitalSignature
-          extendedKeyUsage = codeSigning
-          CONF
+          openssl pkcs12 -export -inkey /tmp/dev.key -in /tmp/dev.crt \
+            -out /tmp/dev.p12 -password pass:
 
-          # 3. 用 openssl 生成自签名证书
-          openssl req -x509 -nodes -new -newkey rsa:2048 \
-            -keyout /tmp/dev.key -out /tmp/dev.crt \
-            -config /tmp/cert.conf -days 365
+          security import /tmp/dev.p12 -k build.keychain -P "" -T /usr/bin/codesign -T /usr/bin/xcodebuild
+          security set-key-partition-list -S apple:,apple-tool:,codesign: -s -k "" build.keychain
 
-          # 4. 导入 keychain
-          security import /tmp/dev.crt -k temp.keychain -T /usr/bin/codesign -T /usr/bin/xcodebuild
-          security import /tmp/dev.key -k temp.keychain -T /usr/bin/codesign -T /usr/bin/xcodebuild
+          CERT="iPhone Developer: OneKit"
+          echo "cert_name=$CERT" >> $GITHUB_OUTPUT
+          echo "✅ Cert created: $CERT"
 
-          # 5. 设置 keychain 权限
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k temp temp.keychain
-
-          # 6. 获取证书身份
-          CERT_ID=$(security find-identity -p codesigning -v temp.keychain | grep -o '"[^"]*"' | head -1 | tr -d '"')
-          echo "cert_id=$CERT_ID" >> $GITHUB_OUTPUT
-          echo "Using certificate: $CERT_ID"
-          security find-identity -p codesigning -v temp.keychain
-
-      # --------------------------------------------------
-      # 构建 (带自签名证书)
-      # --------------------------------------------------
-      - name: 🏗 Build for iOS Device
+      # 构建真机
+      - name: 🏗 Build Device
         run: |
           xcodebuild build \
             -project ${{ env.PROJECT_NAME }}.xcodeproj \
             -scheme ${{ env.PROJECT_NAME }} \
-            -sdk iphoneos \
-            -configuration Release \
-            -arch arm64 \
+            -sdk iphoneos -configuration Release -arch arm64 \
             CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="${{ steps.cert.outputs.cert_id }}" \
+            CODE_SIGN_IDENTITY="${{ steps.cert.outputs.cert_name }}" \
             CODE_SIGNING_REQUIRED=YES \
-            OTHER_CODE_SIGN_FLAGS="--timestamp=none" \
             DEVELOPMENT_TEAM="" \
-            BUILD_DIR=./build \
-            OBJROOT=./build/obj \
-            SYMROOT=./build/sym \
-            DSTROOT=./build/dst 2>&1 | tee build.log | tail -30
-          echo "=== Build exit: $? ==="
+            BUILD_DIR=./build 2>&1 | tee build.log
 
-      - name: 🔍 Locate App
+      - name: 🔍 Find .app
         id: locate
         run: |
-          APP=$(find . -path "*/Release-iphoneos/${{ env.PROJECT_NAME }}.app" -type d | head -1)
+          APP=$(find build -name "*.app" -type d -path "*/Release-iphoneos/*" | head -1)
           if [ -z "$APP" ]; then APP=$(find . -name "*.app" -type d -maxdepth 5 | head -1); fi
-          if [ -z "$APP" ]; then
-            echo "❌ No .app found!"
-            find . -maxdepth 6 -name "*.app" -o -name "*.app" -type d | head -10
-            exit 1
-          fi
+          if [ -z "$APP" ]; then echo "❌ No .app!"; find build -type d -maxdepth 6 | head -20; exit 1; fi
           echo "app_path=$APP" >> $GITHUB_OUTPUT
-          echo "✅ App: $APP"
           ls -la "$APP/"
-          file "$APP/${{ env.PROJECT_NAME }}" 2>/dev/null && echo "✅ Binary exists" || echo "❌ No binary"
+          BIN="$APP/${{ env.PROJECT_NAME }}"
+          [ -f "$BIN" ] && echo "✅ Binary: $(file $BIN | head -1)" || echo "❌ No binary!"
+          [ -f "$BIN" ] || exit 1
 
-      # --------------------------------------------------
-      # 打包 TrollStore IPA
-      # --------------------------------------------------
-      - name: 📦 Package IPA
+      # 打包 IPA
+      - name: 📦 Package
         run: |
-          APP_PATH="${{ steps.locate.outputs.app_path }}"
-          rm -rf Payload
-          mkdir -p "Payload/${{ env.PROJECT_NAME }}.app"
-          ditto "$APP_PATH/" "Payload/${{ env.PROJECT_NAME }}.app/"
-
-          # 验证
-          BIN="Payload/${{ env.PROJECT_NAME }}.app/${{ env.PROJECT_NAME }}"
-          if [ -f "$BIN" ]; then
-            echo "✅ Binary: $BIN"
-            file "$BIN"
-            chmod +x "$BIN"
-          else
-            echo "⚠️ Binary not at expected path, searching..."
-            find "Payload/${{ env.PROJECT_NAME }}.app" -maxdepth 1 -type f -not -name "*.plist" -not -name "*.png" -not -name "*.json" -not -name "*.strings" | head -5
-            # Try any file that looks like a binary
-            for f in "Payload/${{ env.PROJECT_NAME }}.app"/*; do
-              if [ -f "$f" ] && ! [[ "$f" =~ \.(plist|png|jpg|json|strings|entitlements)$ ]]; then
-                mv "$f" "$BIN" 2>/dev/null && echo "Renamed to $BIN" || true
-              fi
-            done
-          fi
-
-          # 移除签名 (TrollStore 重签)
+          APP="${{ steps.locate.outputs.app_path }}"
+          mkdir -p Payload
+          ditto "$APP" "Payload/${{ env.PROJECT_NAME }}.app"
           rm -rf "Payload/${{ env.PROJECT_NAME }}.app/_CodeSignature" 2>/dev/null || true
-          rm -f "Payload/${{ env.PROJECT_NAME }}.app/CodeResources" 2>/dev/null || true
 
-          # 拷贝 Swift 运行时
-          echo "=== Swift stdlib ==="
-          xcrun swift-stdlib-tool \
-            --copy --platform iphoneos \
+          # Swift 运行时
+          xcrun swift-stdlib-tool --copy --platform iphoneos \
             --source-dir "Payload/${{ env.PROJECT_NAME }}.app" \
-            --destination-dir "Payload/${{ env.PROJECT_NAME }}.app/Frameworks" 2>&1 || true
+            --destination-dir "Payload/${{ env.PROJECT_NAME }}.app/Frameworks" 2>&1 || echo "⚠️ No swift-stdlib"
 
-          # Info.plist 检查
-          plutil -p "Payload/${{ env.PROJECT_NAME }}.app/Info.plist" | grep -E "Executable|Identifier|Name" || true
+          echo "=== Structure ==="
+          find "Payload/${{ env.PROJECT_NAME }}.app" -maxdepth 2 | head -20
 
-          # 打包
-          chmod -R 755 "Payload/${{ env.PROJECT_NAME }}.app/"
-          (cd Payload && zip -r "../${{ env.PROJECT_NAME }}.ipa" "${{ env.PROJECT_NAME }}.app/" -x "*.DS_Store" -x "*_CodeSignature*")
-          rm -rf Payload
+          chmod -R 755 "Payload/${{ env.PROJECT_NAME }}.app"
+          cd Payload && zip -r "../${{ env.PROJECT_NAME }}.ipa" "${{ env.PROJECT_NAME }}.app" -x "*.DS_Store"
+          cd .. && rm -rf Payload
           echo "✅ IPA: $(ls -lh ${{ env.PROJECT_NAME }}.ipa)"
 
-      - name: 📄 Upload IPA
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: ${{ env.PROJECT_NAME }}.ipa
           path: ${{ env.PROJECT_NAME }}.ipa
           retention-days: 90
 
-      # Release
-      - name: 🏷 Tag
-        id: version
-        run: |
-          echo "tag=v1.0.0-$(date +'%Y%m%d')-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-          echo "name=OneKit v1.0.0 ($(date +'%Y-%m-%d'))" >> $GITHUB_OUTPUT
-
-      - name: 🚀 GitHub Release
-        if: github.ref == 'refs/heads/main'
+      - if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          name: ${{ steps.version.outputs.name }}
+          tag_name: v$(git rev-parse --short HEAD)
+          name: OneKit IPA
           body: |
-            ## OneKit v1.0.0 — TrollStore IPA
-
-            📱 **安装:** 下载 IPA → TrollStore → Install
+            ## OneKit IPA for TrollStore
+            下载 → 分享到 TrollStore → Install
           files: ${{ env.PROJECT_NAME }}.ipa
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  build-simulator:
-    needs: build-ipa
-    runs-on: macos-14
-    steps:
-      - name: 📥 Checkout
-        uses: actions/checkout@v4
-      - name: 🔧 Setup Xcode
-        uses: maxim-lobanov/setup-xcode@v1
-        with: { xcode-version: "${{ env.XCODE_VERSION }}" }
-      - name: 💾 Install XcodeGen
-        run: brew install xcodegen
-      - name: 📦 Generate Project
-        run: xcodegen generate
-      - name: ✅ Simulator Build
-        run: |
-          xcodebuild build \
-            -project ${{ env.PROJECT_NAME }}.xcodeproj \
-            -scheme ${{ env.PROJECT_NAME }} \
-            -destination 'platform=iOS Simulator,name=iPhone 15 Pro,OS=17.2' \
-            -configuration Debug \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO 2>&1 | tail -5
-          echo "✅ Simulator OK"
