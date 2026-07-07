@@ -34,11 +34,11 @@ jobs:
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY=- \
             CODE_SIGNING_REQUIRED=NO \
-            BUILD_DIR=./build 2>&1 | tee build.log | tail -20
+            -derivedDataPath ./build 2>&1 | tee build.log | tail -20
           echo "=== BUILD EXIT: $? ==="
           echo "=== Check build output ==="
-          ls -la build/ 2>/dev/null || echo "No build dir"
-          find build -type d -maxdepth 4 2>/dev/null | head -20
+          ls -la build/ 2>/dev/null
+          find build -type d -maxdepth 5 2>/dev/null | head -30
 
       - name: 🔍 Find .app
         id: locate
@@ -50,9 +50,10 @@ jobs:
           APP=$(find . -type d -name "*.app" 2>/dev/null | head -1)
 
           if [ -z "$APP" ]; then
-            echo "=== No .app found, checking derived data ==="
-            ls -la ~/Library/Developer/Xcode/DerivedData/ 2>/dev/null | head -5
+              ls -la ~/Library/Developer/Xcode/DerivedData/ 2>/dev/null | head -5
             find ~/Library/Developer/Xcode/DerivedData -name "*.app" -type d 2>/dev/null | head -5
+            # 也用 find 全局搜一下
+            find / -name "OneKit.app" -type d -maxdepth 8 2>/dev/null | head -5
           fi
           echo "app_path=$APP" >> $GITHUB_OUTPUT
 
