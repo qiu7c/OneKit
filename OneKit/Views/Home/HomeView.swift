@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - 主页
 struct HomeView: View {
-    private let tools = ToolItem.builtInTools
+    private let tools = ToolItem.builtInTools.filter { $0.isBuiltIn }
 
     var body: some View {
         NavigationStack {
@@ -61,7 +61,7 @@ struct HomeView: View {
                         } label: {
                             QuickToolCard(tool: tool)
                         }
-                        .buttonStyle(ScaleButtonStyle())
+                        .buttonStyle(.plain)
                     }
                 }
                 .padding(.horizontal, 2)
@@ -87,7 +87,7 @@ struct HomeView: View {
                     } label: {
                         ToolCardView(tool: tool)
                     }
-                    .buttonStyle(ScaleButtonStyle())
+                    .buttonStyle(.plain)
                 }
             }
         }

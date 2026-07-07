@@ -52,9 +52,10 @@ struct ContentView: View {
     }
 }
 
-// MARK: - 工具列表占位
+// MARK: - 工具列表
 struct ToolsListView: View {
-    private let tools = ToolItem.builtInTools
+    private let tools = ToolItem.builtInTools.filter { $0.isBuiltIn }
+    @State private var selectedTool: ToolItem?
 
     var body: some View {
         NavigationStack {
@@ -64,11 +65,12 @@ struct ToolsListView: View {
                     if !categoryTools.isEmpty {
                         Section {
                             ForEach(categoryTools) { tool in
-                                NavigationLink {
-                                    destinationView(for: tool)
+                                Button {
+                                    selectedTool = tool
                                 } label: {
                                     ToolRowView(tool: tool)
                                 }
+                                .buttonStyle(.plain)
                             }
                         } header: {
                             Label(category.rawValue, systemImage: category.icon)
@@ -81,6 +83,9 @@ struct ToolsListView: View {
             .listStyle(.insetGrouped)
             .navigationTitle("所有工具")
             .navigationBarTitleDisplayMode(.large)
+            .navigationDestination(item: $selectedTool) { tool in
+                destinationView(for: tool)
+            }
         }
     }
 

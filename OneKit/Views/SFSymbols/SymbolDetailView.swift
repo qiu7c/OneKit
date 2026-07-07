@@ -95,6 +95,23 @@ struct SymbolDetailView: View {
                         .background(Color.appCard)
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
+
+                    // 下载图标
+                    Button {
+                        saveSymbolAsImage()
+                    } label: {
+                        HStack {
+                            Image(systemName: "square.and.arrow.down")
+                            Text("保存图标到相册")
+                        }
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.appForeground)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background(Color.appCard)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
                 }
                 .padding(.bottom, 16)
             }
@@ -108,5 +125,21 @@ struct SymbolDetailView: View {
                 }
             }
         }
+
+    // MARK: - 保存 SF Symbol 为图片
+    private func saveSymbolAsImage() {
+        let config = UIImage.SymbolConfiguration(pointSize: 200, weight: .regular)
+        guard let symbolImage = UIImage(systemName: symbol.id, withConfiguration: config) else {
+            Haptic.error()
+            return
+        }
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 240, height: 240))
+        let finalImage = renderer.image { ctx in
+            UIColor.clear.setFill()
+            ctx.fill(CGRect(x: 0, y: 0, width: 240, height: 240))
+            symbolImage.draw(in: CGRect(x: 20, y: 20, width: 200, height: 200))
+        }
+        UIImageWriteToSavedPhotosAlbum(finalImage, nil, nil, nil)
+        Haptic.success()
     }
 }
