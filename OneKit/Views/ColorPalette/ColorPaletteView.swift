@@ -51,8 +51,7 @@ struct ColorPaletteView: View {
                 )
                 .overlay {
                     Text(viewModel.selectedColor.hexString)
-                        .font(.title2)
-                        .fontDesign(.monospaced)
+                        .font(.system(.title2, design: .monospaced))
                         .fontWeight(.bold)
                         .foregroundColor(viewModel.selectedColor.textColor)
                         .opacity(0.8)
@@ -77,8 +76,7 @@ struct ColorPaletteView: View {
                 .foregroundColor(.appTertiary)
 
             Text(value)
-                .font(.system(size: 11))
-                .fontDesign(.monospaced)
+                .font(.system(size: 11, design: .monospaced))
                 .foregroundColor(.appForeground)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
@@ -178,8 +176,7 @@ struct ColorPaletteView: View {
                 Slider(value: value, in: 0...1)
                     .tint(color)
                 Text("\(Int(value.wrappedValue * 255))")
-                    .font(.system(size: 11))
-                    .fontDesign(.monospaced)
+                    .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(.appSecondary)
                     .frame(width: 36, alignment: .trailing)
             }

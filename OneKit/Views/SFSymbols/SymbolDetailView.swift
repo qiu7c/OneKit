@@ -31,8 +31,7 @@ struct SymbolDetailView: View {
                         .foregroundColor(.appForeground)
 
                     Text(symbol.id)
-                        .font(.body)
-                        .fontDesign(.monospaced)
+                        .font(.system(.body, design: .monospaced))
                         .foregroundColor(.appSecondary)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
