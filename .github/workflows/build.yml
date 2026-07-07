@@ -17,80 +17,97 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: maxim-lobanov/setup-xcode@v1
         with: { xcode-version: "${{ env.XCODE_VERSION }}" }
+      - run: brew install xcodegen && xcodegen generate
 
-      - run: brew install xcodegen && xcodegen generate && echo "✅ Project generated"
-
-      # 创建自签名证书 (最小化)
-      - name: 🔑 Create Signing Certificate
-        id: cert
-        run: |
-          security create-keychain -p "" build.keychain 2>/dev/null || true
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "" build.keychain
-
-          # openssl 生成证书
-          openssl req -x509 -nodes -newkey rsa:2048 -days 365 \
-            -subj "/CN=iPhone Developer: OneKit" \
-            -keyout /tmp/dev.key -out /tmp/dev.crt
-
-          openssl pkcs12 -export -inkey /tmp/dev.key -in /tmp/dev.crt \
-            -out /tmp/dev.p12 -password pass:
-
-          security import /tmp/dev.p12 -k build.keychain -P "" -T /usr/bin/codesign -T /usr/bin/xcodebuild
-          security set-key-partition-list -S apple:,apple-tool:,codesign: -s -k "" build.keychain
-
-          CERT="iPhone Developer: OneKit"
-          echo "cert_name=$CERT" >> $GITHUB_OUTPUT
-          echo "✅ Cert created: $CERT"
-
-      # 构建真机
-      - name: 🏗 Build Device
+      # ============================================================
+      # 方案: 无签名构建 → 然后用 ldid 注入伪签名 (TrollStore 需要)
+      # ============================================================
+      - name: 🏗 Build iOS
         run: |
           xcodebuild build \
             -project ${{ env.PROJECT_NAME }}.xcodeproj \
             -scheme ${{ env.PROJECT_NAME }} \
             -sdk iphoneos -configuration Release -arch arm64 \
             CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="${{ steps.cert.outputs.cert_name }}" \
-            CODE_SIGNING_REQUIRED=YES \
-            DEVELOPMENT_TEAM="" \
-            BUILD_DIR=./build 2>&1 | tee build.log
+            CODE_SIGN_IDENTITY=- \
+            CODE_SIGNING_REQUIRED=NO \
+            BUILD_DIR=./build 2>&1 | tee build.log | tail -20
+          echo "=== BUILD EXIT: $? ==="
 
-      - name: 🔍 Find .app
+      - name: 🔍 Find .app & Verifiy Binary
         id: locate
         run: |
-          APP=$(find build -name "*.app" -type d -path "*/Release-iphoneos/*" | head -1)
-          if [ -z "$APP" ]; then APP=$(find . -name "*.app" -type d -maxdepth 5 | head -1); fi
-          if [ -z "$APP" ]; then echo "❌ No .app!"; find build -type d -maxdepth 6 | head -20; exit 1; fi
+          APP=$(find . -name "*.app" -type d -path "*/Release-iphoneos/*" | head -1)
+          [ -z "$APP" ] && APP=$(find . -name "*.app" -type d -maxdepth 5 | head -1)
           echo "app_path=$APP" >> $GITHUB_OUTPUT
+
+          if [ -z "$APP" ]; then
+            echo "❌ No .app found!"
+            find . -name "*.app" -type d -maxdepth 5 2>/dev/null | head -10
+            find build -type d -maxdepth 5 2>/dev/null | head -20
+            ls build/ 2>/dev/null || echo "No build dir"
+            exit 1
+          fi
+
           ls -la "$APP/"
           BIN="$APP/${{ env.PROJECT_NAME }}"
-          [ -f "$BIN" ] && echo "✅ Binary: $(file $BIN | head -1)" || echo "❌ No binary!"
-          [ -f "$BIN" ] || exit 1
+          if [ ! -f "$BIN" ]; then
+            echo "❌ Binary missing!"
+            find "$APP" -type f -maxdepth 1 | head -20
+            # 看有没有其他可执行文件
+            find "$APP" -type f -exec file {} \; | grep -i mach | head -5
+            exit 1
+          fi
+          echo "✅ Binary: $(file "$BIN")"
+          echo "Binary size: $(ls -lh "$BIN" | awk '{print $5}')"
+          chmod +x "$BIN"
 
-      # 打包 IPA
-      - name: 📦 Package
+      # 用 ldid 注入伪签名 (TrollStore 需要二进制有签名头)
+      - name: ✍️ ldid Fake-Sign
         run: |
           APP="${{ steps.locate.outputs.app_path }}"
-          mkdir -p Payload
-          ditto "$APP" "Payload/${{ env.PROJECT_NAME }}.app"
+          BIN="$APP/${{ env.PROJECT_NAME }}"
+
+          # macOS 14 自带 ldid
+          if command -v ldid &>/dev/null; then
+            ldid -S "$BIN" && echo "✅ ldid sign OK" || echo "⚠️ ldid failed"
+          else
+            curl -sL "https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5/ldid_macosx_arm64" -o /tmp/ldid
+            chmod +x /tmp/ldid
+            /tmp/ldid -S "$BIN" && echo "✅ ldid sign OK" || echo "⚠️ ldid failed"
+          fi
+          codesign -dv "$BIN" 2>&1 | head -3 || echo "⚠️ codesign verify failed (expected for ldid)"
+
+      - name: 📦 Package IPA
+        run: |
+          APP="${{ steps.locate.outputs.app_path }}"
+          rm -rf Payload
+          mkdir -p "Payload/${{ env.PROJECT_NAME }}.app"
+          ditto "$APP/" "Payload/${{ env.PROJECT_NAME }}.app/"
+
+          # 清理签名 (TrollStore 重签)
           rm -rf "Payload/${{ env.PROJECT_NAME }}.app/_CodeSignature" 2>/dev/null || true
 
-          # Swift 运行时
+          # 植入 Swift 运行时
           xcrun swift-stdlib-tool --copy --platform iphoneos \
             --source-dir "Payload/${{ env.PROJECT_NAME }}.app" \
-            --destination-dir "Payload/${{ env.PROJECT_NAME }}.app/Frameworks" 2>&1 || echo "⚠️ No swift-stdlib"
+            --destination-dir "Payload/${{ env.PROJECT_NAME }}.app/Frameworks" 2>&1 || true
 
-          echo "=== Structure ==="
-          find "Payload/${{ env.PROJECT_NAME }}.app" -maxdepth 2 | head -20
+          echo "=== IPA contents ==="
+          find "Payload/${{ env.PROJECT_NAME }}.app" -maxdepth 2 -type f | head -20
 
-          chmod -R 755 "Payload/${{ env.PROJECT_NAME }}.app"
-          cd Payload && zip -r "../${{ env.PROJECT_NAME }}.ipa" "${{ env.PROJECT_NAME }}.app" -x "*.DS_Store"
+          # 验证 Info.plist
+          echo "=== CFBundleExecutable ==="
+          plutil -p "Payload/${{ env.PROJECT_NAME }}.app/Info.plist" | grep CFBundleExecutable
+
+          chmod -R 755 "Payload/${{ env.PROJECT_NAME }}.app/"
+          cd Payload && zip -r "../${{ env.PROJECT_NAME }}.ipa" "${{ env.PROJECT_NAME }}.app/" -x "*.DS_Store"
           cd .. && rm -rf Payload
+
           echo "✅ IPA: $(ls -lh ${{ env.PROJECT_NAME }}.ipa)"
+          unzip -l "${{ env.PROJECT_NAME }}.ipa" | grep -E "\.app/$|\.app/${{ env.PROJECT_NAME }}|\.app/Info.plist" | head -5
 
       - uses: actions/upload-artifact@v4
         with:
@@ -103,9 +120,6 @@ jobs:
         with:
           tag_name: v$(git rev-parse --short HEAD)
           name: OneKit IPA
-          body: |
-            ## OneKit IPA for TrollStore
-            下载 → 分享到 TrollStore → Install
           files: ${{ env.PROJECT_NAME }}.ipa
           draft: false
           prerelease: false
