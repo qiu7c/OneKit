@@ -1,7 +1,4 @@
 import SwiftUI
-#if canImport(SFSafeSymbols)
-import SFSafeSymbols
-#endif
 
 // MARK: - SF Symbols 服务
 actor SFSymbolService {
@@ -9,49 +6,24 @@ actor SFSymbolService {
 
     private init() {}
 
-    /// 所有 SF Symbols 名称 (来自 SFSafeSymbols)
-    private var allSymbolNames: [String] {
-        #if canImport(SFSafeSymbols)
-        return SFSymbol.allSymbols.map { $0.rawValue }
-        #else
-        return SFSymbolItem.popularSymbols.map { $0.id }
-        #endif
-    }
-
-    /// 获取所有符号 (转为 SFSymbolItem)
-    private func makeAllSymbolItems() -> [SFSymbolItem] {
-        allSymbolNames.map { name in
-            let cat = categoryForSymbol(name)
-            return SFSymbolItem(
-                id: name,
-                name: name,
-                category: cat,
-                keywords: [],
-                isMulticolor: name.contains(".fill"),
-                availability: "iOS 16+"
-            )
-        }
-    }
-
     /// 搜索 SF Symbols (全量)
     func searchSymbols(query: String) -> [SFSymbolItem] {
         let lowercased = query.lowercased()
-        return allSymbolNames
+        return SFSymbolItem.allSymbolNames
             .filter { $0.lowercased().contains(lowercased) }
-            .map { SFSymbolItem(id: $0, name: $0, category: .all, keywords: [], isMulticolor: false, availability: "iOS 16+") }
+            .sorted()
+            .map { SFSymbolItem(id: $0, name: $0, category: categoryForSymbol($0), keywords: [], isMulticolor: $0.hasSuffix(".fill"), availability: "iOS 16+") }
     }
 
     /// 按分类获取
     func symbols(for category: SFSymbolCategory) -> [SFSymbolItem] {
-        if category == .all {
-            return makeAllSymbolItems()
+        let names = category == .all ? SFSymbolItem.allSymbolNames
+            : SFSymbolItem.allSymbolNames.filter { categoryForSymbol($0) == category }
+        return names.sorted().map {
+            SFSymbolItem(id: $0, name: $0, category: category, keywords: [], isMulticolor: false, availability: "iOS 16+")
         }
-        return allSymbolNames
-            .filter { categoryForSymbol($0) == category }
-            .map { SFSymbolItem(id: $0, name: $0, category: category, keywords: [], isMulticolor: false, availability: "iOS 16+") }
     }
 
-    /// 简易分类映射 (基于名称前缀)
     private func categoryForSymbol(_ name: String) -> SFSymbolCategory {
         if name.hasPrefix("arrow") || name.hasPrefix("chevron") { return .arrows }
         if name.hasPrefix("sun") || name.hasPrefix("moon") || name.hasPrefix("cloud") || name.hasPrefix("snowflake") || name.hasPrefix("tornado") || name.hasPrefix("wind") || name.hasPrefix("umbrella") { return .weather }
