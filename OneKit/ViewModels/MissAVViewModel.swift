@@ -406,7 +406,8 @@ extension MissAVViewModel {
         """
     }
 
-    /// 自动点击播放器 + 提取 m3u8（atDocumentEnd 自动执行，不依赖 evaluateJavaScript）
+    /// 自动点击播放器 + 提取 m3u8（atDocumentEnd 自动执行）
+    /// 模仿原项目 Playwright 策略: 等 .plyr → 坐标点击 → 拦截 playlist.m3u8
     private static let autoClickJS = """
     (() => {
         if (window.__missavAutoClickInstalled) return;
@@ -414,51 +415,106 @@ extension MissAVViewModel {
 
         window.webkit.messageHandlers.missavLog.postMessage('autoClick 启动: ' + location.href);
 
-        function tryGetM3U8() {
-            // 从 video 元素直接读取
-            var v = document.querySelector('video');
-            if (v) {
-                var src = v.currentSrc || v.src || (v.querySelector('source') && v.querySelector('source').src);
-                if (src && src.indexOf('.m3u8') !== -1) {
-                    window.webkit.messageHandlers.missavM3U8.postMessage(src);
-                    window.webkit.messageHandlers.missavLog.postMessage('autoClick 找到 m3u8: ' + src);
-                    return true;
-                }
-            }
-            // 所有带 m3u8 的元素
-            var els = document.querySelectorAll('[src*=\\".m3u8\\"], [href*=\\".m3u8\\"]');
-            for (var i = 0; i < els.length; i++) {
-                var val = els[i].src || els[i].href;
-                if (val) {
-                    window.webkit.messageHandlers.missavM3U8.postMessage(val);
-                    window.webkit.messageHandlers.missavLog.postMessage('autoClick 找到 m3u8 attr: ' + val);
-                    return true;
-                }
+        // ---- 拦截 fetch/XHR（对于 HLS.js 有效） ----
+        var _m3u8Url = null;
+
+        function captureM3U8(url) {
+            if (!url || !url.indexOf) return false;
+            // 原项目检查 playlist.m3u8
+            if (url.indexOf('playlist.m3u8') !== -1 || url.indexOf('.m3u8') !== -1) {
+                if (!_m3u8Url) _m3u8Url = url;
+                window.webkit.messageHandlers.missavM3U8.postMessage(url);
+                window.webkit.messageHandlers.missavLog.postMessage('捕获 m3u8: ' + url);
+                return true;
             }
             return false;
         }
 
-        // 立即尝试
-        if (tryGetM3U8()) return;
+        var origFetch = window.fetch;
+        window.fetch = function() {
+            var url = arguments[0] && (typeof arguments[0] === 'string' ? arguments[0] : arguments[0].url);
+            if (url) captureM3U8(url);
+            return origFetch.apply(this, arguments);
+        };
 
-        // 等 1 秒后点击播放器
-        setTimeout(function() {
-            if (tryGetM3U8()) return;
+        var origOpen = XMLHttpRequest.prototype.open;
+        XMLHttpRequest.prototype.open = function(method, url) {
+            if (url) captureM3U8(url);
+            return origOpen.apply(this, arguments);
+        };
 
-            var player = document.querySelector('.plyr, video, [class*=\\"player\\"], [class*=\\"video\\"]');
-            if (player) {
-                player.click();
-                window.webkit.messageHandlers.missavLog.postMessage('点击了播放器: ' + (player.className || player.tagName));
-            } else {
-                document.body && document.body.click();
-                window.webkit.messageHandlers.missavLog.postMessage('未找到播放器，点击 body');
+        // ---- MutationObserver 监测 video src 变化 ----
+        var obs = new MutationObserver(function(muts) {
+            for (var i = 0; i < muts.length; i++) {
+                var m = muts[i];
+                if (m.type === 'attributes' && m.attributeName === 'src') {
+                    captureM3U8(m.target.src);
+                }
             }
-        }, 1000);
+        });
+        obs.observe(document, { subtree: true, attributes: true, attributeFilter: ['src'] });
 
-        // 再等 3 秒再检查
+        // ---- 原项目策略: 等 .plyr → 坐标点击 ----
+        var pollInterval = setInterval(function() {
+            var player = document.querySelector('.plyr, [class*="plyr"]');
+            if (player) {
+                clearInterval(pollInterval);
+                window.webkit.messageHandlers.missavLog.postMessage('找到 .plyr 播放器');
+
+                // 坐标点击 (原项目 mouse.click(400,300))
+                var rect = player.getBoundingClientRect();
+                var cx = rect.left + rect.width / 2;
+                var cy = rect.top + rect.height / 2;
+
+                function doClick(x, y) {
+                    // 原项目实际触发点击的完整事件链
+                    player.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: x, clientY: y }));
+                    player.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: x, clientY: y }));
+                    player.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: x, clientY: y }));
+                    window.webkit.messageHandlers.missavLog.postMessage('坐标点击 (' + Math.round(x) + ',' + Math.round(y) + ')');
+                }
+
+                doClick(cx, cy);
+
+                // 原项目: 等 2 秒没捕获就再点一次
+                setTimeout(function() {
+                    if (!_m3u8Url) {
+                        doClick(cx, cy);
+                        window.webkit.messageHandlers.missavLog.postMessage('重试点击');
+                    }
+                }, 2000);
+
+                // 原项目: 轮询最多 20 秒
+                var waited = 0;
+                var checkInterval = setInterval(function() {
+                    waited++;
+                    if (_m3u8Url) {
+                        clearInterval(checkInterval);
+                        window.webkit.messageHandlers.missavLog.postMessage('已捕获 m3u8，等待结束');
+                        return;
+                    }
+                    // 每次检查也读一下 video.src
+                    var v = document.querySelector('video');
+                    if (v && v.src && v.src.indexOf('.m3u8') !== -1 && v.src !== _m3u8Url) {
+                        captureM3U8(v.src);
+                    }
+                    if (waited >= 20) {
+                        clearInterval(checkInterval);
+                        window.webkit.messageHandlers.missavLog.postMessage('轮询结束，未捕获到 m3u8');
+                    }
+                }, 1000);
+            } else {
+                window.webkit.messageHandlers.missavLog.postMessage('等待 .plyr...');
+            }
+        }, 500);
+
+        // 兜底: 10 秒后如果还没找到播放器, 直接点页面
         setTimeout(function() {
-            tryGetM3U8();
-        }, 4000);
+            if (!document.querySelector('.plyr, [class*="plyr"]')) {
+                window.webkit.messageHandlers.missavLog.postMessage('10秒未找到播放器，点击 body');
+                document.body && document.body.click();
+            }
+        }, 10000);
     })();
     """
 }

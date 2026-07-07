@@ -196,27 +196,26 @@ struct VideoCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            // 封面 - 3:4 比例，撑满列宽
+            // 封面 - 用 Color.clear 占位强制 3:4
             ZStack(alignment: .topTrailing) {
-                AsyncImage(url: URL(string: video.coverURL)) { phase in
-                    switch phase {
-                    case .success(let img):
-                        img.resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(maxWidth: .infinity, minHeight: 180)
-                            .clipped()
-                    case .failure:
-                        Rectangle()
-                            .fill(Color.appCard)
-                            .overlay(Image(systemName: "photo").foregroundColor(.appSecondary))
-                    case .empty:
-                        Rectangle()
-                            .fill(Color.appCard)
-                            .overlay(ProgressView())
-                    @unknown default:
-                        Rectangle().fill(Color.appCard)
-                    }
-                }
+                Color.clear
+                    .overlay(
+                        AsyncImage(url: URL(string: video.coverURL)) { phase in
+                            switch phase {
+                            case .success(let img):
+                                img.resizable().aspectRatio(contentMode: .fill)
+                            case .failure:
+                                Color.appCard.overlay(
+                                    Image(systemName: "photo").foregroundColor(.appSecondary)
+                                )
+                            case .empty:
+                                Color.appCard.overlay(ProgressView())
+                            @unknown default:
+                                Color.appCard
+                            }
+                        }
+                    )
+                    .clipped()
 
                 Text(video.tag.rawValue)
                     .font(.system(size: 9, weight: .bold))
@@ -227,16 +226,14 @@ struct VideoCardView: View {
                     .padding(6)
             }
             .frame(maxWidth: .infinity)
-            .aspectRatio(3/4, contentMode: .fill)
+            .aspectRatio(3/4, contentMode: .fit)
             .clipShape(RoundedRectangle(cornerRadius: 10))
 
-            // 番号
             Text(video.id)
                 .font(.caption2).fontWeight(.semibold)
                 .foregroundColor(.appSecondary)
                 .lineLimit(1)
 
-            // 标题
             Text(video.title)
                 .font(.caption)
                 .foregroundColor(.appForeground)
