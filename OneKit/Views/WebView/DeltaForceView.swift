@@ -1,75 +1,142 @@
 import SwiftUI
 
 struct DeltaForceView: View {
-    @State private var isLoading = true
-    @State private var pageTitle = "三角洲行动助手"
-    @State private var canGoBack = false
-    @State private var webView: WKWebView?
-
-    let url = URL(string: "https://sjz.upx8.com/")!
+    @State private var selectedTab = 0
 
     var body: some View {
         VStack(spacing: 0) {
-            // 进度条
-            if isLoading {
-                ProgressView()
-                    .progressViewStyle(.linear)
-                    .tint(Color.accentColor)
+            Picker("", selection: $selectedTab) {
+                Text("今日密码").tag(0)
+                Text("研发部门").tag(1)
+                Text("制造推荐").tag(2)
+                Text("更多").tag(3)
             }
+            .pickerStyle(.segmented)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
 
-            // WebView
-            WebViewRepresentable(url: url, isLoading: $isLoading, title: $pageTitle, canGoBack: $canGoBack, webView: $webView)
-                .ignoresSafeArea(edges: .bottom)
+            switch selectedTab {
+            case 0: DailyPwdView()
+            case 1: ActivityView()
+            case 2: ManufacturingView()
+            default: DeltaWebView()
+            }
         }
-        .navigationTitle(pageTitle)
+        .background(Color.appBackground)
+        .navigationTitle("三角洲助手")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
-        .toolbar {
-            ToolbarItemGroup(placement: .navigationBarTrailing) {
-                Button { webView?.reload() } label: { Image(systemName: "arrow.clockwise") }
-                    .disabled(isLoading)
-            }
-            ToolbarItemGroup(placement: .navigationBarLeading) {
-                if canGoBack {
-                    Button { webView?.goBack() } label: { Image(systemName: "chevron.left") }
-                }
-            }
-        }
     }
 }
 
-// MARK: - WKWebView 封装 (完整版)
-struct WebViewRepresentable: UIViewRepresentable {
-    let url: URL
-    @Binding var isLoading: Bool
-    @Binding var title: String
-    @Binding var canGoBack: Bool
-    @Binding var webView: WKWebView?
+// MARK: - 今日密码
+struct DailyPwdView: View {
+    @State private var data: DailyPwdData?
+    @State private var loading = true; @State private var error: String?
+    @State private var copied: String?
 
-    func makeCoordinator() -> Coordinator { Coordinator(self) }
-
-    func makeUIView(context: Context) -> WKWebView {
-        let config = WKWebViewConfiguration()
-        config.preferences.javaScriptEnabled = true
-        let wv = WKWebView(frame: .zero, configuration: config)
-        wv.navigationDelegate = context.coordinator
-        wv.allowsBackForwardNavigationGestures = true
-        wv.load(URLRequest(url: url))
-        DispatchQueue.main.async { webView = wv }
-        return wv
+    var body: some View {
+        ScrollView {
+            if loading { ProgressView().padding(.top, 60) }
+            else if let e = error { errorView(e) }
+            else if let d = data {
+                HStack { Image(systemName: "clock").font(.caption2); Text("更新: \(d.updateTime)").font(.caption); Spacer() }.foregroundColor(.appSecondary).padding(.horizontal, 20).padding(.top, 8)
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    ForEach(d.codes) { p in
+                        VStack(spacing: 6) {
+                            Text(p.name).font(.caption).foregroundColor(.appSecondary)
+                            Text(p.code).font(.system(size: 28, design: .monospaced)).fontWeight(.bold).foregroundColor(.appForeground)
+                            Button { UIPasteboard.general.string = p.code; copied = p.code; Haptic.success(); DispatchQueue.main.asyncAfter(deadline: .now()+1.5) { copied = nil } } label: {
+                                Text(copied == p.code ? "已复制" : "复制").font(.caption2).fontWeight(.semibold).foregroundColor(copied == p.code ? Color.appBackground : .white).padding(.horizontal, 20).padding(.vertical, 5).background(Color.appForeground).clipShape(Capsule())
+                            }
+                        }.padding(14).frame(maxWidth: .infinity).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                }.padding(16)
+            }
+        }
+        .refreshable { await load() }
+        .task { await load() }
     }
 
-    func updateUIView(_: WKWebView, context: Context) {}
+    private func load() async { loading = true; error = nil; do { data = try await DeltaForceService.shared.fetchDailyPasswords() } catch { self.error = error.localizedDescription }; loading = false }
+    private func errorView(_ e: String) -> some View { VStack(spacing: 12) { Image(systemName: "wifi.slash").font(.system(size: 36)).foregroundColor(.appSecondary.opacity(0.5)); Text(e).font(.body).foregroundColor(.appSecondary); Button("重试") { Task { await load() } }.fontWeight(.semibold).foregroundColor(.white).padding(.horizontal, 32).padding(.vertical, 10).background(Color.appForeground).clipShape(RoundedRectangle(cornerRadius: 8)) }.padding(.top, 60) }
+}
 
-    class Coordinator: NSObject, WKNavigationDelegate {
-        var parent: WebViewRepresentable
-        init(_ p: WebViewRepresentable) { parent = p }
+// MARK: - 研发部门活动道具
+struct ActivityView: View {
+    @State private var data: ActivityData?
+    @State private var loading = true; @State private var error: String?
 
-        func webView(_ wv: WKWebView, didStartProvisionalNavigation nav: WKNavigation!) { parent.isLoading = true }
-        func webView(_ wv: WKWebView, didFinish navigation: WKNavigation!) {
-            parent.isLoading = false; parent.title = wv.title ?? ""; parent.canGoBack = wv.canGoBack
+    var body: some View {
+        ScrollView {
+            if loading { ProgressView().padding(.top, 60) }
+            else if let e = error { errorView(e) }
+            else if let d = data {
+                HStack { Image(systemName: "timer").font(.caption2); Text(d.time).font(.caption).fontWeight(.semibold).foregroundColor(.appForeground); Spacer() }.padding(.horizontal, 20).padding(.top, 8)
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    ForEach(d.items) { item in
+                        VStack(spacing: 6) {
+                            AsyncImage(url: URL(string: item.image)) { phase in
+                                if let img = phase.image { img.resizable().aspectRatio(contentMode: .fit).frame(height: 56) }
+                                else { RoundedRectangle(cornerRadius: 6).fill(Color.appCard).frame(height: 56).overlay(ProgressView()) }
+                            }
+                            Text(item.name).font(.caption).foregroundColor(.appForeground).lineLimit(1).minimumScaleFactor(0.8)
+                        }
+                        .padding(10).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
+                }.padding(16)
+            }
         }
-        func webView(_ wv: WKWebView, didFail navigation: WKNavigation!, withError e: Error) { parent.isLoading = false }
-        func webView(_ wv: WKWebView, didFailProvisionalNavigation nav: WKNavigation!, withError e: Error) { parent.isLoading = false }
+        .refreshable { await load() }
+        .task { await load() }
+    }
+    private func load() async { loading = true; error = nil; do { data = try await DeltaForceService.shared.fetchActivityItems() } catch { self.error = error.localizedDescription }; loading = false }
+    private func errorView(_ e: String) -> some View { VStack(spacing: 12) { Image(systemName: "wifi.slash").font(.system(size: 36)).foregroundColor(.appSecondary.opacity(0.5)); Text(e).font(.body).foregroundColor(.appSecondary); Button("重试") { Task { await load() } }.fontWeight(.semibold).foregroundColor(.white).padding(.horizontal, 32).padding(.vertical, 10).background(Color.appForeground).clipShape(RoundedRectangle(cornerRadius: 8)) }.padding(.top, 60) }
+}
+
+// MARK: - 制造推荐
+struct ManufacturingView: View {
+    @State private var data: ManufacturingData?
+    @State private var loading = true; @State private var error: String?
+
+    var body: some View {
+        ScrollView {
+            if loading { ProgressView().padding(.top, 60) }
+            else if let e = error { errorView(e) }
+            else if let d = data {
+                LazyVStack(spacing: 10) {
+                    ForEach(d.items) { item in
+                        HStack(spacing: 12) {
+                            AsyncImage(url: URL(string: item.icon)) { phase in
+                                if let img = phase.image { img.resizable().aspectRatio(contentMode: .fit).frame(width: 44, height: 44) }
+                                else { RoundedRectangle(cornerRadius: 6).fill(Color.appCard).frame(width: 44, height: 44).overlay(ProgressView()) }
+                            }
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(item.name).font(.subheadline).fontWeight(.medium).foregroundColor(.appForeground).lineLimit(1)
+                                Text(item.workshop).font(.caption).foregroundColor(.appSecondary)
+                            }
+                            Spacer()
+                            VStack(alignment: .trailing) {
+                                Text("时收益").font(.system(size: 9)).foregroundColor(.appTertiary)
+                                Text(item.hourlyProfit).font(.caption).fontWeight(.bold).foregroundColor(.green)
+                            }
+                        }
+                        .padding(12).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
+                }.padding(16)
+                if let ft = d.fetchTime { Text("更新: \(ft)").font(.caption2).foregroundColor(.appTertiary).padding(.bottom, 8) }
+            }
+        }
+        .refreshable { await load() }
+        .task { await load() }
+    }
+    private func load() async { loading = true; error = nil; do { data = try await DeltaForceService.shared.fetchManufacturing() } catch { self.error = error.localizedDescription }; loading = false }
+    private func errorView(_ e: String) -> some View { VStack(spacing: 12) { Image(systemName: "wifi.slash").font(.system(size: 36)).foregroundColor(.appSecondary.opacity(0.5)); Text(e).font(.body).foregroundColor(.appSecondary); Button("重试") { Task { await load() } }.fontWeight(.semibold).foregroundColor(.white).padding(.horizontal, 32).padding(.vertical, 10).background(Color.appForeground).clipShape(RoundedRectangle(cornerRadius: 8)) }.padding(.top, 60) }
+}
+
+// MARK: - 更多 (WebView)
+struct DeltaWebView: View {
+    var body: some View {
+        WebViewRepresentable(url: URL(string: "https://sjz.upx8.com/")!, isLoading: .constant(false), title: .constant(""), canGoBack: .constant(false), webView: .constant(nil)).ignoresSafeArea(edges: .bottom)
     }
 }
