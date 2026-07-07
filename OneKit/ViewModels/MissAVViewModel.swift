@@ -32,8 +32,8 @@ final class MissAVViewModel: NSObject, ObservableObject {
     @Published var searchText = ""
     @Published var selectedVideo: MissAVMedia?
 
-    private var webView: WKWebView?
-    private let baseURL = "https://missav.com"
+    internal var webView: WKWebView?
+    private let baseURL = "https://missav.ai"
 
     // Continuations for async/await bridging
     private var searchContinuation: CheckedContinuation<[MissAVMedia], Error>?
@@ -71,15 +71,27 @@ final class MissAVViewModel: NSObject, ObservableObject {
 
         webView = WKWebView(frame: .zero, configuration: config)
         webView?.navigationDelegate = self
-        webView?.isHidden = true
 
         // 设置自定义 UA
         webView?.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"
     }
 
-    // 确保 WebView 不被释放
-    private func ensureWebView() {
-        if webView == nil { setupWebView() }
+    /// 将 WKWebView 挂到窗口层级（必须这样才能渲染和执行 JS）
+    func attachToWindow() {
+        guard let webView = webView, webView.superview == nil else { return }
+        webView.isHidden = false
+        webView.alpha = 0.01
+        webView.frame = CGRect(x: 0, y: 0, width: 320, height: 480)
+        if let window = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .first?.windows.first {
+            window.addSubview(webView)
+        }
+    }
+
+    /// 从窗口层级移除
+    func detachFromWindow() {
+        webView?.removeFromSuperview()
     }
 }
 

@@ -84,6 +84,8 @@ struct MissAVSearchView: View {
         .onSubmit(of: .search) {
             Task { await performSearch() }
         }
+        .onAppear { vm.attachToWindow() }
+        .onDisappear { vm.detachFromWindow() }
     }
 
     // MARK: - 搜索栏
