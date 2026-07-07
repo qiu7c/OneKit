@@ -7,13 +7,9 @@ struct IconDownloaderView: View {
 
     var body: some View {
         ZStack {
-            if viewModel.showError {
-                errorView
-            } else if viewModel.searchResults.isEmpty && !viewModel.isSearching {
-                emptyStateView
-            } else {
-                resultsList
-            }
+            emptyStateView.opacity(viewModel.showError || !viewModel.searchResults.isEmpty || viewModel.isSearching ? 0 : 1)
+            resultsList.opacity(viewModel.showError || (viewModel.searchResults.isEmpty && !viewModel.isSearching) ? 0 : 1)
+            errorView.opacity(viewModel.showError ? 1 : 0).allowsHitTesting(viewModel.showError)
             if viewModel.isSearching {
                 ProgressView().scaleEffect(1.2).frame(maxWidth: .infinity, maxHeight: .infinity).background(Color.appBackground.opacity(0.8))
             }
@@ -32,13 +28,8 @@ struct IconDownloaderView: View {
             Text("请求失败").font(.title3).fontWeight(.medium).foregroundColor(.appForeground)
             Text(viewModel.errorMessage?.isEmpty == false ? viewModel.errorMessage! : "请检查网络连接")
                 .font(.body).foregroundColor(.appSecondary).multilineTextAlignment(.center).padding(.horizontal)
-            Button {
-                viewModel.showError = false
-                Task { await viewModel.search() }
-            } label: {
-                Text("重试").fontWeight(.semibold).foregroundColor(.white)
-                    .frame(width: 120).frame(height: 40)
-                    .background(Color.appForeground).clipShape(RoundedRectangle(cornerRadius: 10))
+            Button { viewModel.showError = false; Task { await viewModel.search() } } label: {
+                Text("重试").fontWeight(.semibold).foregroundColor(.white).frame(width: 120).frame(height: 40).background(Color.appForeground).clipShape(RoundedRectangle(cornerRadius: 10))
             }
         }
     }
