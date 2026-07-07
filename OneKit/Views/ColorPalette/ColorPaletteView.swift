@@ -5,7 +5,6 @@ struct ColorPaletteView: View {
     @StateObject private var viewModel = ColorPaletteViewModel()
     @State private var showCopied = false
     @State private var showImagePicker = false
-    @State private var selectedPhoto: PhotosPickerItem?
     @State private var pickedImage: UIImage?
     @State private var showColorPickerSheet = false
 
@@ -28,23 +27,18 @@ struct ColorPaletteView: View {
         .navigationTitle("调色板")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
-        .photosPicker(isPresented: $showImagePicker, selection: $selectedPhoto, matching: .images)
-        .onChange(of: selectedPhoto) { _ in
-            Task {
-                guard let data = try? await selectedPhoto?.loadTransferable(type: Data.self),
-                      let img = UIImage(data: data) else { return }
+        .sheet(isPresented: $showImagePicker) {
+            PhotoPickerView { img in
                 pickedImage = img
                 showColorPickerSheet = true
             }
         }
         .sheet(isPresented: $showColorPickerSheet) {
-            NavigationStack {
-                ImageColorPickerView(image: pickedImage ?? UIImage()) { color in
-                    var r: CGFloat = 0; var g: CGFloat = 0; var b: CGFloat = 0; var a: CGFloat = 0
-                    UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
-                    viewModel.customRed = Double(r); viewModel.customGreen = Double(g); viewModel.customBlue = Double(b)
-                    viewModel.updateFromSliders()
-                }
+            ImageColorPickerView(image: pickedImage ?? UIImage()) { color in
+                var r: CGFloat = 0; var g: CGFloat = 0; var b: CGFloat = 0; var a: CGFloat = 0
+                UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
+                viewModel.customRed = Double(r); viewModel.customGreen = Double(g); viewModel.customBlue = Double(b)
+                viewModel.updateFromSliders()
             }
         }
     }
@@ -147,6 +141,40 @@ struct ColorPaletteView: View {
                         .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.appSeparator.opacity(0.3), lineWidth: 0.5))
                         .overlay(Image(systemName: "checkmark").font(.caption2).foregroundColor(c.textColor).opacity(viewModel.selectedColor.hex == c.hex ? 1 : 0))
                         .onTapGesture { viewModel.selectPreset(c) }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - 照片选择器 (UIKit 封装，避免 SwiftUI PhotosPicker 冷启动问题)
+struct PhotoPickerView: UIViewControllerRepresentable {
+    let onPick: (UIImage) -> Void
+
+    func makeUIViewController(context: Context) -> PHPickerViewController {
+        var config = PHPickerConfiguration()
+        config.filter = .images
+        config.selectionLimit = 1
+        let picker = PHPickerViewController(configuration: config)
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_: PHPickerViewController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator { Coordinator(onPick: onPick) }
+
+    class Coordinator: NSObject, PHPickerViewControllerDelegate {
+        let onPick: (UIImage) -> Void
+        init(onPick: @escaping (UIImage) -> Void) { self.onPick = onPick }
+        func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+            picker.dismiss(animated: true)
+            guard let result = results.first else { return }
+            if result.itemProvider.canLoadObject(ofClass: UIImage.self) {
+                result.itemProvider.loadObject(ofClass: UIImage.self) { img, _ in
+                    if let image = img as? UIImage {
+                        DispatchQueue.main.async { self.onPick(image) }
+                    }
                 }
             }
         }

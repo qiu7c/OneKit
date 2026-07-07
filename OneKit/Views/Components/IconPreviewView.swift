@@ -7,6 +7,7 @@ struct IconPreviewView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var previewImage: UIImage?
+    @State private var selectedSize: IconSize = .size1024
     @State private var isDownloading = false
     @State private var showSavedAlert = false
 
@@ -26,23 +27,33 @@ struct IconPreviewView: View {
                 Text(app.trackName).font(.title2).fontWeight(.bold).foregroundColor(.appForeground)
                 Text(app.artistName).font(.body).foregroundColor(.appSecondary)
 
-                Spacer()
+                Picker("尺寸", selection: $selectedSize) {
+                    ForEach(IconSize.allCases) { size in Text(size.rawValue).tag(size) }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
 
                 VStack(spacing: 10) {
                     Button {
-                        Task { await viewModel.downloadAllSizes(for: app) }
+                        Task {
+                            isDownloading = true
+                            await viewModel.downloadAllSizes(for: app)
+                            if let img = viewModel.downloadedIcons[app.id]?[selectedSize] {
+                                previewImage = img
+                            }
+                            isDownloading = false; Haptic.success()
+                        }
                     } label: {
-                        HStack { Image(systemName: "arrow.down.to.line"); Text("下载全部尺寸") }
-                            .font(.headline).fontWeight(.semibold).foregroundColor(.white).frame(maxWidth: .infinity).frame(height: 50)
-                            .background(Color.appForeground).clipShape(RoundedRectangle(cornerRadius: 12))
+                        HStack { if isDownloading { ProgressView().tint(.white) } else { Image(systemName: "arrow.down.to.line") }; Text("下载全部尺寸") }.modernButtonStyle()
                     }
+                    .disabled(isDownloading)
 
                     if previewImage != nil {
                         Button {
-                            let status = PHPhotoLibrary.authorizationStatus(for: .addOnly)
-                            switch status {
+                            let s = PHPhotoLibrary.authorizationStatus(for: .addOnly)
+                            switch s {
                             case .notDetermined:
-                                PHPhotoLibrary.requestAuthorization(for: .addOnly) { s in if s == .authorized || s == .limited { saveImage() } }
+                                PHPhotoLibrary.requestAuthorization(for: .addOnly) { n in if n == .authorized || n == .limited { self.saveImage() } }
                             case .denied, .restricted: Haptic.error()
                             case .authorized, .limited: saveImage()
                             @unknown default: return
@@ -63,7 +74,6 @@ struct IconPreviewView: View {
             .toolbar { ToolbarItem(placement: .navigationBarTrailing) { Button("关闭") { dismiss() } } }
             .alert("已保存到相册", isPresented: $showSavedAlert) { Button("确定", role: .cancel) {} }
             .task {
-                // 自动下载 1024 尺寸预览
                 if previewImage == nil {
                     previewImage = await viewModel.downloadIcon(for: app, size: .size1024)
                 }
