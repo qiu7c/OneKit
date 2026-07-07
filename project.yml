@@ -7,7 +7,7 @@ options:
 
 settings:
   base:
-    SWIFT_VERSION: "5.9"
+    SWIFT_VERSION: "5.7"
     DEVELOPMENT_TEAM: ""
     MARKETING_VERSION: "1.0.0"
     CURRENT_PROJECT_VERSION: "1"
@@ -15,7 +15,6 @@ settings:
     INFOPLIST_KEY_CFBundleDisplayName: "OneKit"
     INFOPLIST_KEY_UILaunchStoryboardName: ""
     INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait"
-    INFOPLIST_KEY_LSApplicationCategoryType: ""
     INFOPLIST_KEY_UIRequiredDeviceCapabilities: [arm64]
     IPHONEOS_DEPLOYMENT_TARGET: "16.0"
 
@@ -31,9 +30,6 @@ targets:
         SWIFT_ACTIVE_COMPILER_CONDITIONS: "$(inherited) DEBUG"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1"
-        SWIFT_VERSION: "5.7"
-    info:
-      path: OneKit/Info.plist
     dependencies: []
 
   OneKitTests:
