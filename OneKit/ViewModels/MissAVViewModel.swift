@@ -407,27 +407,47 @@ extension MissAVViewModel {
     }
 
     /// 自动点击播放器 + 提取 m3u8（atDocumentEnd 自动执行）
-    /// 模仿原项目 Playwright 策略: 等 .plyr → 坐标点击 → 拦截 playlist.m3u8
+    /// 只在详情页（含 /cn/ 且不含 /search/）执行
     private static let autoClickJS = """
     (() => {
         if (window.__missavAutoClickInstalled) return;
         window.__missavAutoClickInstalled = true;
 
+        // ★★★★★ 只在详情页执行 ★★★★★
+        if (location.href.indexOf('/search/') !== -1 || location.href.indexOf('/actresses/') !== -1) {
+            window.webkit.messageHandlers.missavLog.postMessage('autoClick 跳过: 非详情页 ' + location.href);
+            return;
+        }
         window.webkit.messageHandlers.missavLog.postMessage('autoClick 启动: ' + location.href);
 
-        // ---- 拦截 fetch/XHR（对于 HLS.js 有效） ----
+        // ---- 拦截 fetch/XHR ----
         var _m3u8Url = null;
+        var _adDomains = ['saawsedge', 'doubleclick', 'googlesyndication', 'adservice', 'adserver'];
+        var _skippedAds = {};
+
+        function isAdURL(url) {
+            for (var i = 0; i < _adDomains.length; i++) {
+                if (url.indexOf(_adDomains[i]) !== -1) return true;
+            }
+            return false;
+        }
 
         function captureM3U8(url) {
             if (!url || !url.indexOf) return false;
-            // 原项目检查 playlist.m3u8
-            if (url.indexOf('playlist.m3u8') !== -1 || url.indexOf('.m3u8') !== -1) {
-                if (!_m3u8Url) _m3u8Url = url;
-                window.webkit.messageHandlers.missavM3U8.postMessage(url);
-                window.webkit.messageHandlers.missavLog.postMessage('捕获 m3u8: ' + url);
-                return true;
+            if (url.indexOf('playlist.m3u8') === -1 && url.indexOf('.m3u8') === -1) return false;
+            if (isAdURL(url)) {
+                if (!_skippedAds[url]) {
+                    _skippedAds[url] = true;
+                    window.webkit.messageHandlers.missavLog.postMessage('过滤广告 m3u8: ' + url);
+                }
+                return false;
             }
-            return false;
+            if (!_m3u8Url) {
+                _m3u8Url = url;
+                window.webkit.messageHandlers.missavM3U8.postMessage(url);
+                window.webkit.messageHandlers.missavLog.postMessage('捕获正片 m3u8: ' + url);
+            }
+            return true;
         }
 
         var origFetch = window.fetch;
@@ -443,7 +463,7 @@ extension MissAVViewModel {
             return origOpen.apply(this, arguments);
         };
 
-        // ---- MutationObserver 监测 video src 变化 ----
+        // ---- MutationObserver ----
         var obs = new MutationObserver(function(muts) {
             for (var i = 0; i < muts.length; i++) {
                 var m = muts[i];
@@ -454,20 +474,18 @@ extension MissAVViewModel {
         });
         obs.observe(document, { subtree: true, attributes: true, attributeFilter: ['src'] });
 
-        // ---- 原项目策略: 等 .plyr → 坐标点击 ----
+        // ---- 等 .plyr → 点击 → 轮询 ----
         var pollInterval = setInterval(function() {
             var player = document.querySelector('.plyr, [class*="plyr"]');
             if (player) {
                 clearInterval(pollInterval);
                 window.webkit.messageHandlers.missavLog.postMessage('找到 .plyr 播放器');
 
-                // 坐标点击 (原项目 mouse.click(400,300))
                 var rect = player.getBoundingClientRect();
                 var cx = rect.left + rect.width / 2;
                 var cy = rect.top + rect.height / 2;
 
                 function doClick(x, y) {
-                    // 原项目实际触发点击的完整事件链
                     player.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: x, clientY: y }));
                     player.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: x, clientY: y }));
                     player.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: x, clientY: y }));
@@ -475,43 +493,24 @@ extension MissAVViewModel {
                 }
 
                 doClick(cx, cy);
-
-                // 原项目: 等 2 秒没捕获就再点一次
                 setTimeout(function() {
-                    if (!_m3u8Url) {
-                        doClick(cx, cy);
-                        window.webkit.messageHandlers.missavLog.postMessage('重试点击');
-                    }
+                    if (!_m3u8Url) { doClick(cx, cy); window.webkit.messageHandlers.missavLog.postMessage('重试点击'); }
                 }, 2000);
 
-                // 原项目: 轮询最多 20 秒
                 var waited = 0;
                 var checkInterval = setInterval(function() {
                     waited++;
-                    if (_m3u8Url) {
-                        clearInterval(checkInterval);
-                        window.webkit.messageHandlers.missavLog.postMessage('已捕获 m3u8，等待结束');
-                        return;
-                    }
-                    // 每次检查也读一下 video.src
+                    if (_m3u8Url) { clearInterval(checkInterval); return; }
                     var v = document.querySelector('video');
-                    if (v && v.src && v.src.indexOf('.m3u8') !== -1 && v.src !== _m3u8Url) {
-                        captureM3U8(v.src);
-                    }
-                    if (waited >= 20) {
-                        clearInterval(checkInterval);
-                        window.webkit.messageHandlers.missavLog.postMessage('轮询结束，未捕获到 m3u8');
-                    }
+                    if (v && v.src && v.src.indexOf('.m3u8') !== -1 && v.src !== _m3u8Url) captureM3U8(v.src);
+                    if (waited >= 20) { clearInterval(checkInterval); window.webkit.messageHandlers.missavLog.postMessage('轮询 20s 结束'); }
                 }, 1000);
-            } else {
-                window.webkit.messageHandlers.missavLog.postMessage('等待 .plyr...');
             }
         }, 500);
 
-        // 兜底: 10 秒后如果还没找到播放器, 直接点页面
         setTimeout(function() {
             if (!document.querySelector('.plyr, [class*="plyr"]')) {
-                window.webkit.messageHandlers.missavLog.postMessage('10秒未找到播放器，点击 body');
+                window.webkit.messageHandlers.missavLog.postMessage('10s 无 .plyr，点击 body');
                 document.body && document.body.click();
             }
         }, 10000);

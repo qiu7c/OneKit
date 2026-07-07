@@ -146,7 +146,7 @@ struct MissAVDetailView: View {
         .toolbar(.hidden, for: .tabBar)
         .fullScreenCover(isPresented: $showPlayer) {
             if let url = m3u8URL {
-                MissAVPlayerView(m3u8URL: url)
+                MissAVPlayerView(m3u8URL: url, referer: video.detailURL)
             }
         }
         .onAppear { startExtract() }
