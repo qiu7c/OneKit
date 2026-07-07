@@ -52,8 +52,14 @@ jobs:
 
       - name: 📦 IPA
         run: |
-          APP=$(find build -name "OneKit.app" -type d | head -1)
-          [ -z "$APP" ] && APP=$(find . -name "OneKit.app" -type d -maxdepth 5 | head -1)
+          echo "=== Build products ==="
+          find build -name "*.app" -type d -maxdepth 6 2>/dev/null
+          APP=$(find build -name "OneKit.app" -type d -maxdepth 6 | head -1)
+          if [ -z "$APP" ]; then
+            echo "❌ OneKit.app not found!"
+            ls -la build/Build/Products/ 2>/dev/null || echo "No Products dir"
+            exit 1
+          fi
           echo "App: $APP"
           ls -la "$APP/"
           BIN="$APP/OneKit"
