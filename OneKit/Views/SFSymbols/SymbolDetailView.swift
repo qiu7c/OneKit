@@ -125,6 +125,7 @@ struct SymbolDetailView: View {
                 }
             }
         }
+    }
 
     // MARK: - 保存 SF Symbol 为图片
     private func saveSymbolAsImage() {
