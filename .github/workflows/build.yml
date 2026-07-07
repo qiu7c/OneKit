@@ -38,8 +38,9 @@ jobs:
           xcrun actool OneKit/Resources/Assets.xcassets --compile Payload/OneKit.app/ \
             --platform iphoneos --minimum-deployment-target 16.0 --app-icon AppIcon 2>&1 || true
 
-          # 写死图标配置 (CFBundleIconName 用于 asset catalog)
-          plutil -insert CFBundleIcons -json '{"CFBundlePrimaryIcon":{"CFBundleIconName":"AppIcon","UIPrerenderedIcon":false}}' Payload/OneKit.app/Info.plist 2>/dev/null || true
+          # 配置图标 (移除旧键 + 插入新键)
+          plutil -remove CFBundleIcons Payload/OneKit.app/Info.plist 2>/dev/null || true
+          plutil -insert CFBundleIcons -json '{"CFBundlePrimaryIcon":{"CFBundleIconName":"AppIcon","UIPrerenderedIcon":false}}' Payload/OneKit.app/Info.plist
 
           chmod -R 755 Payload/OneKit.app/
           zip -r OneKit.ipa Payload/ -x "*.DS_Store"
