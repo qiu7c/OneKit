@@ -1,13 +1,11 @@
 import SwiftUI
-import SFSafeSymbols
 
-// MARK: - SF Symbols 服务 (使用 SFSafeSymbols 全量列表)
+// MARK: - SF Symbols 服务
 actor SFSymbolService {
     static let shared = SFSymbolService()
 
     private init() {}
 
-    /// 缓存已验证可用的符号
     private var validCache: [String: Bool] = [:]
 
     private func isValid(_ name: String) -> Bool {
@@ -18,7 +16,7 @@ actor SFSymbolService {
     }
 
     private var allNames: [String] {
-        SFSymbol.allSymbols.map { $0.rawValue }.filter { isValid($0) }
+        SFSymbolItem.allSymbolNames.filter { isValid($0) }
     }
 
     func searchSymbols(query: String) -> [SFSymbolItem] {
@@ -32,7 +30,7 @@ actor SFSymbolService {
     }
 
     private func makeItem(_ name: String) -> SFSymbolItem {
-        SFSymbolItem(id: name, name: name, category: categoryForSymbol(name), keywords: [], isMulticolor: name.hasSuffix(".fill"), availability: "iOS 16+")
+        SFSymbolItem(id: name, name: name, category: categoryForSymbol(name), keywords: [], isMulticolor: false, availability: "iOS 16+")
     }
 
     private func categoryForSymbol(_ name: String) -> SFSymbolCategory {

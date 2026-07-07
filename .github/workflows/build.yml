@@ -15,35 +15,34 @@ jobs:
       - uses: maxim-lobanov/setup-xcode@v1
         with: { xcode-version: "15.2" }
 
-      # 下载 SFSafeSymbols release zip (更稳定)
+      # 下载 SFSafeSymbols release tarball
       - name: 📦 Download SFSafeSymbols
         run: |
-          curl -sL "https://github.com/SFSafeSymbols/SFSafeSymbols/archive/refs/tags/4.0.0.tar.gz" -o /tmp/sfs.tar.gz
-          if [ -s /tmp/sfs.tar.gz ] && [ "$(wc -c < /tmp/sfs.tar.gz)" -gt 100 ]; then
-            tar xzf /tmp/sfs.tar.gz -C /tmp/
-            find /tmp/SFSafeSymbols-4.0.0 -name "SFSymbol.swift" -exec cp {} /tmp/SFSymbol.swift \;
-            echo "✅ Extracted SFSafeSymbols"
-          else
-            # fallback: v3.0.0
-            curl -sL "https://github.com/SFSafeSymbols/SFSafeSymbols/archive/refs/tags/3.0.0.tar.gz" -o /tmp/sfs2.tar.gz
-            tar xzf /tmp/sfs2.tar.gz -C /tmp/ 2>/dev/null
-            find /tmp -name "SFSymbol.swift" -exec cp {} /tmp/SFSymbol.swift \; 2>/dev/null || true
-          fi
+          for url in \
+            "https://github.com/SFSafeSymbols/SFSafeSymbols/archive/refs/tags/4.0.0.tar.gz" \
+            "https://github.com/SFSafeSymbols/SFSafeSymbols/archive/refs/tags/3.0.0.tar.gz"; do
+            curl -sL "$url" -o /tmp/sfs.tar.gz
+            SZ=$(wc -c < /tmp/sfs.tar.gz)
+            echo "$url → $SZ bytes"
+            if [ "$SZ" -gt 1000 ]; then
+              tar xzf /tmp/sfs.tar.gz -C /tmp/ 2>/dev/null
+              find /tmp -name "SFSymbol.swift" -type f -exec cp {} /tmp/SFSymbol.swift \; 2>/dev/null
+              [ -f /tmp/SFSymbol.swift ] && echo "✅ Got SFSymbol.swift" && break
+            fi
+          done
 
       - name: 🏗 Build
         run: |
-          # 生成符号列表
-          if [ -s /tmp/SFSymbol.swift ]; then
-            grep -o '"[^"]*"' /tmp/SFSymbol.swift | tr -d '"' | sort -u > /tmp/symbols.txt
-            echo "// SFSafeSymbols list" > OneKit/Models/SFSymbolsAll.swift
-            echo "extension SFSymbolItem { static let allSymbolNames: [String] = [" >> OneKit/Models/SFSymbolsAll.swift
-            while IFS= read -r name; do
-              [ -n "$name" ] && echo "    \"$name\"," >> OneKit/Models/SFSymbolsAll.swift
-            done < /tmp/symbols.txt
-            echo "] }" >> OneKit/Models/SFSymbolsAll.swift
-            echo "✅ Generated $(wc -l < /tmp/symbols.txt) symbols"
-          else
-            echo "⚠️ Using built-in list"
+          if [ -f /tmp/SFSymbol.swift ]; then
+            grep "case " /tmp/SFSymbol.swift | grep -o '"[^"]*"' | tr -d '"' | sort -u > /tmp/symbols.txt
+            WC=$(wc -l < /tmp/symbols.txt)
+            echo "✅ $WC symbols extracted"
+            if [ "$WC" -gt 10 ]; then
+              printf "// SFSafeSymbols (%d symbols)\nextension SFSymbolItem { static let allSymbolNames: [String] = [\n" "$WC" > tmp_sym.swift
+              while IFS= read -r n; do [ -n "$n" ] && printf "    \"%s\",\n" "$n"; done < /tmp/symbols.txt >> tmp_sym.swift
+              printf "] }\n" >> tmp_sym.swift
+              mv tmp_sym.swift OneKit/Models/SFSymbolsAll.swift
+            fi
           fi
 
           SDK=$(xcrun --show-sdk-path --sdk iphoneos)
@@ -57,9 +56,8 @@ jobs:
           file Payload/OneKit.app/OneKit
           chmod +x Payload/OneKit.app/OneKit
           cp OneKit/Info.plist Payload/OneKit.app/
-          plutil -replace CFBundleExecutable -string "OneKit" Payload/OneKit.app/Info.plist
+          for k in CFBundleExecutable CFBundleIdentifier CFBundleName; do plutil -replace "$k" -string "OneKit" Payload/OneKit.app/Info.plist; done
           plutil -replace CFBundleIdentifier -string "com.cc.OneKit" Payload/OneKit.app/Info.plist
-          plutil -replace CFBundleName -string "OneKit" Payload/OneKit.app/Info.plist
           plutil -replace CFBundleShortVersionString -string "1.0.0" Payload/OneKit.app/Info.plist
           plutil -replace CFBundleVersion -string "1" Payload/OneKit.app/Info.plist
           plutil -replace MinimumOSVersion -string "16.0" Payload/OneKit.app/Info.plist
@@ -70,7 +68,7 @@ jobs:
           chmod -R 755 Payload/OneKit.app/
           zip -r OneKit.ipa Payload/ -x "*.DS_Store"
           rm -rf Payload
-          unzip -l OneKit.ipa | head -5; echo "✅ $(ls -lh OneKit.ipa)"
+          echo "✅ $(ls -lh OneKit.ipa)"
 
       - uses: actions/upload-artifact@v4
         with: { name: "OneKit.ipa", path: "OneKit.ipa", retention-days: 90 }
