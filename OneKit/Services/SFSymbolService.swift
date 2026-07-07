@@ -6,22 +6,40 @@ actor SFSymbolService {
 
     private init() {}
 
-    /// 搜索 SF Symbols (全量)
+    /// 缓存已验证在当前 iOS 可用的符号
+    private var validCache: [String: Bool] = [:]
+
+    /// 检查符号在当前系统是否可用
+    private func isValidOnCurrentOS(_ name: String) -> Bool {
+        if let cached = validCache[name] { return cached }
+        let available = UIImage(systemName: name) != nil
+        validCache[name] = available
+        return available
+    }
+
+    /// 获取所有可用符号 (只返回当前 iOS 支持的)
+    private func availableSymbols() -> [String] {
+        SFSymbolItem.allSymbolNames.filter { isValidOnCurrentOS($0) }
+    }
+
+    /// 搜索
     func searchSymbols(query: String) -> [SFSymbolItem] {
         let lowercased = query.lowercased()
-        return SFSymbolItem.allSymbolNames
+        return availableSymbols()
             .filter { $0.lowercased().contains(lowercased) }
             .sorted()
-            .map { SFSymbolItem(id: $0, name: $0, category: categoryForSymbol($0), keywords: [], isMulticolor: $0.hasSuffix(".fill"), availability: "iOS 16+") }
+            .map { makeItem($0) }
     }
 
     /// 按分类获取
     func symbols(for category: SFSymbolCategory) -> [SFSymbolItem] {
-        let names = category == .all ? SFSymbolItem.allSymbolNames
-            : SFSymbolItem.allSymbolNames.filter { categoryForSymbol($0) == category }
-        return names.sorted().map {
-            SFSymbolItem(id: $0, name: $0, category: category, keywords: [], isMulticolor: false, availability: "iOS 16+")
-        }
+        let names = category == .all ? availableSymbols()
+            : availableSymbols().filter { categoryForSymbol($0) == category }
+        return names.sorted().map { makeItem($0) }
+    }
+
+    private func makeItem(_ name: String) -> SFSymbolItem {
+        SFSymbolItem(id: name, name: name, category: categoryForSymbol(name), keywords: [], isMulticolor: false, availability: "iOS 16+")
     }
 
     private func categoryForSymbol(_ name: String) -> SFSymbolCategory {
