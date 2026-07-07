@@ -15,41 +15,33 @@ jobs:
       - uses: maxim-lobanov/setup-xcode@v1
         with: { xcode-version: "15.2" }
 
-      # 从系统字体提取所有真实 SF Symbols
-      - name: 🔄 Enumerate real SF Symbols
+      # 从 SFSafeSymbols 源码提取完整符号列表
+      - name: 🔄 Download symbols
         run: |
-          cat > /tmp/gen.swift << 'ENDSWIFT'
-          import Foundation
-          import CoreText
+          URL="https://raw.githubusercontent.com/SFSafeSymbols/SFSafeSymbols/develop/Sources/SFSafeSymbols/SFSymbol.swift"
+          for i in 1 2 3; do
+            if curl -sL "$URL" -o /tmp/SFSymbol.swift && [ -s /tmp/SFSymbol.swift ] && [ "$(wc -c < /tmp/SFSymbol.swift)" -gt 100 ]; then
+              echo "✅ Downloaded ($(wc -l < /tmp/SFSymbol.swift) lines)"
+              grep -o '"[^"]*"' /tmp/SFSymbol.swift | tr -d '"' | grep -v '^\s*$' | sort -u > /tmp/symbols.txt
+              echo "Extracted $(wc -l < /tmp/symbols.txt) symbols"
+              break
+            fi
+            echo "Attempt $i failed"
+            sleep 3
+          done
 
-          // 尝试多个字体名
-          for family in ["SF Pro", "SF Compact", "SF Symbols", ".AppleSymbolsSF"] {
-              let desc = CTFontDescriptorCreateWithAttributes([kCTFontFamilyNameAttribute: family] as CFDictionary)
-              let matched = CTFontDescriptorCreateMatchingFontDescriptors(desc, nil) as? [CTFontDescriptor] ?? []
-              for fd in matched {
-                  let name = CTFontDescriptorCopyAttribute(fd, kCTFontNameAttribute) as? String ?? ""
-                  print("FONT: \(name) \(CTFontGetGlyphCount(CTFontCreateWithFontDescriptor(fd, 0, nil)))")
-              }
-          }
-          ENDSWIFT
-          xcrun swift /tmp/gen.swift 2>&1
-
-      # swiftc 直接编译
       - name: 🏗 Build
         run: |
-          # 用枚举出的真实符号列表替换生成文件
-          cat > /tmp/gen_swift.swift << 'SWIFT'
-          import Foundation
-          let names = try! String(contentsOfFile: "/tmp/symbols.txt")
-              .components(separatedBy: .newlines)
-              .filter { !$0.isEmpty && !$0.hasPrefix(".") }
-          var code = "// Auto-generated (\(names.count) symbols)\nextension SFSymbolItem {\n    static let allSymbolNames: [String] = [\n"
-          for name in names { code += "        \"\(name)\",\n" }
-          code += "    ]\n}\n"
-          try! code.write(toFile: "OneKit/Models/SFSymbolsAll.swift", atomically: true, encoding: .utf8)
-          print("Generated \(names.count) symbols")
-          SWIFT
-          xcrun swift /tmp/gen_swift.swift
+          # 替换符号列表(如果成功下载)
+          if [ -f /tmp/symbols.txt ] && [ -s /tmp/symbols.txt ]; then
+            echo "Generating SFSymbolsAll.swift from real list..."
+            echo "// Auto-generated from SFSafeSymbols" > OneKit/Models/SFSymbolsAll.swift
+            echo "extension SFSymbolItem { static let allSymbolNames: [String] = [" >> OneKit/Models/SFSymbolsAll.swift
+            while IFS= read -r name; do
+              [ -n "$name" ] && echo "    \"$name\"," >> OneKit/Models/SFSymbolsAll.swift
+            done < /tmp/symbols.txt
+            echo "] }" >> OneKit/Models/SFSymbolsAll.swift
+          fi
 
           SDK=$(xcrun --show-sdk-path --sdk iphoneos)
           SRCS=$(find OneKit -name "*.swift")
@@ -57,12 +49,10 @@ jobs:
           swiftc -sdk "$SDK" -target arm64-apple-ios16.0 -module-name OneKit \
             $SRCS -o Payload/OneKit.app/OneKit 2>&1
 
-      - name: 🖼 Resources + IPA
+      - name: 🖼 IPA
         run: |
           file Payload/OneKit.app/OneKit
           chmod +x Payload/OneKit.app/OneKit
-
-          # Info.plist
           cp OneKit/Info.plist Payload/OneKit.app/
           plutil -replace CFBundleExecutable -string "OneKit" Payload/OneKit.app/Info.plist
           plutil -replace CFBundleIdentifier -string "com.cc.OneKit" Payload/OneKit.app/Info.plist
@@ -70,21 +60,14 @@ jobs:
           plutil -replace CFBundleShortVersionString -string "1.0.0" Payload/OneKit.app/Info.plist
           plutil -replace CFBundleVersion -string "1" Payload/OneKit.app/Info.plist
           plutil -replace MinimumOSVersion -string "16.0" Payload/OneKit.app/Info.plist
-
-          # Assets.car (图标)
           xcrun actool OneKit/Resources/Assets.xcassets \
-            --compile Payload/OneKit.app/ \
-            --platform iphoneos \
-            --minimum-deployment-target 16.0 \
-            --app-icon AppIcon \
+            --compile Payload/OneKit.app/ --platform iphoneos \
+            --minimum-deployment-target 16.0 --app-icon AppIcon \
             --output-partial-info-plist /tmp/icon.plist 2>&1 || true
           [ -f /tmp/icon.plist ] && plutil -merge /tmp/icon.plist Payload/OneKit.app/Info.plist 2>/dev/null || true
-
           chmod -R 755 Payload/OneKit.app/
-          # 正确 IPA 结构: zip 在 Payload 外层
           zip -r OneKit.ipa Payload/ -x "*.DS_Store"
           rm -rf Payload
-          echo "=== IPA ==="
           unzip -l OneKit.ipa | head -5
           echo "✅ $(ls -lh OneKit.ipa)"
 
