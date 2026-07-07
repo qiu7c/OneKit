@@ -126,7 +126,7 @@ struct EditQuickLaunchView: View {
                         }
                     }
                     .onMove { source, dest in
-                        qlManager.move(from: source, to: destination)
+                        qlManager.move(from: source, to: dest)
                     }
                 }
 
