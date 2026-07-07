@@ -34,6 +34,7 @@ final class MissAVViewModel: NSObject, ObservableObject {
 
     internal var webView: WKWebView?
     private let baseURL = "https://missav.ai"
+    private var isSearching = false
 
     private var searchContinuation: CheckedContinuation<[MissAVMedia], Error>?
     private var m3u8Continuation: CheckedContinuation<String, Error>?
@@ -122,12 +123,21 @@ final class MissAVViewModel: NSObject, ObservableObject {
 extension MissAVViewModel {
     func search(query: String) async throws -> [MissAVMedia] {
         guard !query.trimmingCharacters(in: .whitespaces).isEmpty else { return [] }
+        // 防重入：正在搜索时忽略新请求
+        if isSearching { throw MissAVError.searchInProgress }
+        isSearching = true
+        defer { isSearching = false }
 
         await MainActor.run { self.state = .searching }
         if webView == nil { log("⚠️ search: webView 为 nil，重新创建"); setupWebView() }
         attachToWindow()
 
         return try await withCheckedThrowingContinuation { continuation in
+            // 清除旧 continuation 和导航
+            self.searchContinuation?.resume(throwing: MissAVError.cancelled)
+            self.searchContinuation = nil
+            webView?.stopLoading()
+
             self.searchContinuation = continuation
 
             let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
@@ -141,12 +151,10 @@ extension MissAVViewModel {
             let req = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 30)
             webView?.load(req)
 
-            // 兜底超时 15s
             DispatchQueue.main.asyncAfter(deadline: .now() + 15) { [weak self] in
                 guard let self = self, let cont = self.searchContinuation else { return }
                 self.searchContinuation = nil
                 self.log("⏰ 搜索超时 15s")
-                // 超时前 dump 一下页面状态
                 self.dumpPageState()
                 cont.resume(throwing: MissAVError.timeout)
             }
@@ -159,6 +167,11 @@ extension MissAVViewModel {
         attachToWindow()
 
         return try await withCheckedThrowingContinuation { continuation in
+            // 清除旧的
+            self.m3u8Continuation?.resume(throwing: MissAVError.cancelled)
+            self.m3u8Continuation = nil
+            webView?.stopLoading()
+
             self.m3u8Continuation = continuation
 
             guard let url = URL(string: video.detailURL) else {
@@ -556,6 +569,8 @@ enum MissAVError: LocalizedError {
     case timeout
     case m3u8NotFound
     case networkError(String)
+    case cancelled
+    case searchInProgress
 
     var errorDescription: String? {
         switch self {
@@ -564,6 +579,8 @@ enum MissAVError: LocalizedError {
         case .timeout: return "请求超时"
         case .m3u8NotFound: return "未找到视频流地址"
         case .networkError(let e): return "网络错误: \(e)"
+        case .cancelled: return "已取消"
+        case .searchInProgress: return "正在搜索中，请稍候"
         }
     }
 }
