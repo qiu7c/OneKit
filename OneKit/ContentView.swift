@@ -73,7 +73,7 @@ struct SettingsView: View {
                 // 作者
                 Section {
                     HStack(spacing: 12) {
-                        AsyncImage(url: URL(string: "http://q1.qlogo.cn/g?b=qq&nk=921569084&s=100")) { p in
+                        AsyncImage(url: URL(string: "https://q1.qlogo.cn/g?b=qq&nk=921569084&s=100")) { p in
                             if let img = p.image { img.resizable().frame(width: 44, height: 44).clipShape(Circle()) }
                             else { Circle().fill(Color.appCard).frame(width: 44, height: 44).overlay(Image(systemName: "person.fill").font(.body).foregroundColor(.appSecondary)) }
                         }
