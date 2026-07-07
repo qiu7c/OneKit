@@ -36,7 +36,8 @@ struct ColorPaletteView: View {
         }
         .background(Color.appBackground)
         .navigationTitle("调色板")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .tabBar)
     }
 
     // MARK: - 当前颜色预览

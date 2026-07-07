@@ -15,9 +15,6 @@ struct HomeView: View {
                     if !tools.isEmpty {
                         quickToolsSection
                     }
-
-                    // 工具分类网格
-                    toolsGridSection
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
@@ -65,30 +62,6 @@ struct HomeView: View {
                     }
                 }
                 .padding(.horizontal, 2)
-            }
-        }
-    }
-
-    // MARK: - 工具分类网格
-    private var toolsGridSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("所有工具")
-                .font(.headline)
-                .fontWeight(.semibold)
-                .foregroundColor(.appForeground)
-
-            LazyVGrid(
-                columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 2),
-                spacing: 10
-            ) {
-                ForEach(tools) { tool in
-                    NavigationLink {
-                        destinationView(for: tool)
-                    } label: {
-                        ToolCardView(tool: tool)
-                    }
-                    .buttonStyle(.plain)
-                }
             }
         }
     }

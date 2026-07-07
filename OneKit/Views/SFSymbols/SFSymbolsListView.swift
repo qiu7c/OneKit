@@ -28,7 +28,7 @@ struct SFSymbolsListView: View {
         .background(Color.appBackground)
         .navigationTitle("SF Symbols")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbar(.hidden, for: .tabBar)
         .searchable(
             text: $viewModel.searchText,
             placement: .navigationBarDrawer(displayMode: .always),

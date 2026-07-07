@@ -25,6 +25,7 @@ struct IconDownloaderView: View {
         .background(Color.appBackground)
         .navigationTitle("图标下载")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .tabBar)
         .searchable(
             text: $viewModel.searchText,
             placement: .navigationBarDrawer(displayMode: .always),

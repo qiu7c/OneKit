@@ -86,16 +86,12 @@ struct ToolsListView: View {
     }
 
     @ViewBuilder
-    private func destinationView(for tool: ToolItem) -> some View {
+    func destinationView(for tool: ToolItem) -> some View {
         switch tool.id {
-        case "sf-symbols":
-            SFSymbolsListView()
-        case "appstore-icon":
-            IconDownloaderView()
-        case "color-palette":
-            ColorPaletteView()
-        default:
-            PlaceholderView(tool: tool)
+        case "sf-symbols": SFSymbolsListView()
+        case "appstore-icon": IconDownloaderView()
+        case "color-palette": ColorPaletteView()
+        default: PlaceholderView(tool: tool)
         }
     }
 }
@@ -199,7 +195,6 @@ struct SettingsView: View {
                 }
                 .listRowBackground(Color.clear)
 
-                // MARK: - 主题切换
                 Section("主题") {
                     ForEach(AppTheme.allCases) { theme in
                         Button {
