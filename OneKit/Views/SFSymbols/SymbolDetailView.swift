@@ -88,6 +88,7 @@ struct SymbolDetailView: View {
     }
 
     // MARK: - 保存 SF Symbol 为图片
+    @MainActor
     private func saveSymbolAsImage() {
         let config = UIImage.SymbolConfiguration(pointSize: 200, weight: .regular)
         guard UIImage(systemName: symbol.id, withConfiguration: config) != nil else {
