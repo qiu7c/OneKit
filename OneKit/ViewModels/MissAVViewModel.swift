@@ -74,13 +74,21 @@ final class MissAVViewModel: NSObject, ObservableObject {
         // Enable JS
         config.preferences.javaScriptEnabled = true
 
-        // 拦截 m3u8 请求
+        // 拦截 m3u8 请求（页面最早阶段注入）
         let interceptionScript = WKUserScript(
             source: Self.m3u8InterceptionJS,
             injectionTime: .atDocumentStart,
             forMainFrameOnly: false
         )
         controller.addUserScript(interceptionScript)
+
+        // 自动点击播放器（DOM 就绪后自动执行，无需 evaluateJavaScript）
+        let autoClickScript = WKUserScript(
+            source: Self.autoClickJS,
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: false
+        )
+        controller.addUserScript(autoClickScript)
 
         webView = WKWebView(frame: .zero, configuration: config)
         webView?.navigationDelegate = self
@@ -213,15 +221,7 @@ extension MissAVViewModel: WKNavigationDelegate {
         }
 
         if m3u8Continuation != nil {
-            log("📋 详情页加载完成，注入 m3u8 提取 JS")
-            let extractJS = Self.extractM3U8JS
-            webView.evaluateJavaScript(extractJS) { _, error in
-                if let error = error {
-                    self.log("❌ 注入 m3u8 提取 JS 失败: \(error.localizedDescription)")
-                } else {
-                    self.log("✅ m3u8 提取 JS 注入成功")
-                }
-            }
+            log("📋 详情页加载完成，autoClickJS 已通过 atDocumentEnd 自动注入，等待网络请求拦截...")
         }
     }
 
@@ -345,52 +345,46 @@ extension MissAVViewModel {
 
             const tryScrape = () => {
                 try {
+                    function isVideoURL(url) {
+                        // 必须包含 /cn/ 并且匹配番号格式 XXX-123
+                        if (!url || url.indexOf('/cn/') === -1) return false;
+                        // 排除非视频页
+                        if (url.indexOf('contact') !== -1 || url.indexOf('dmca') !== -1 || url.indexOf('actresses') !== -1 || url.indexOf('ranking') !== -1) return false;
+                        // 必须匹配番号正则
+                        return /[a-zA-Z]+-\\d+/.test(url);
+                    }
+
                     const results = [];
                     const links = document.querySelectorAll('div.grid a');
                     window.webkit.messageHandlers.missavLog.postMessage('找到 ' + links.length + ' 个 div.grid a');
 
                     links.forEach(a => {
+                        const href = a.href.startsWith('http') ? a.href : '\(baseURL)' + a.href;
+                        if (!isVideoURL(href)) return;
                         const img = a.querySelector('img');
                         const title = img?.getAttribute('alt') || a.textContent.trim();
                         const cover = img?.getAttribute('data-src') || img?.src || '';
-                        const href = a.href.startsWith('http') ? a.href : '\(baseURL)' + a.href;
                         const badges = Array.from(a.querySelectorAll('.badge, [class*="badge"], tag, [class*="tag"]'))
                             .map(b => b.textContent.trim()).filter(Boolean);
-                        if (title && href) {
+                        if (title && href && title.length < 200) {
                             results.push({ title: title.trim(), coverURL: cover, detailURL: href, tags: badges });
                         }
                     });
+                    window.webkit.messageHandlers.missavLog.postMessage('过滤后得到 ' + results.length + ' 个视频');
 
                     if (results.length === 0) {
-                        window.webkit.messageHandlers.missavLog.postMessage('策略1 无结果，尝试策略2');
-                        document.querySelectorAll('[class*="thumbnail"] a, [class*="card"] a, article a').forEach(a => {
+                        window.webkit.messageHandlers.missavLog.postMessage('div.grid a 未找到视频，尝试策略2');
+                        document.querySelectorAll('a[href*="/cn/"]').forEach(a => {
+                            if (!isVideoURL(a.href)) return;
                             const img = a.querySelector('img');
                             const title = img?.getAttribute('alt') || a.querySelector('[class*="title"]')?.textContent || a.textContent.trim();
                             const cover = img?.getAttribute('data-src') || img?.src || '';
                             const href = a.href.startsWith('http') ? a.href : '\(baseURL)' + a.href;
                             const badges = Array.from(a.querySelectorAll('[class*="badge"], [class*="tag"]'))
                                 .map(b => b.textContent.trim()).filter(Boolean);
-                            if (title && href) results.push({ title: title.trim(), coverURL: cover, detailURL: href, tags: badges });
+                            if (title && href && title.length < 200) results.push({ title: title.trim(), coverURL: cover, detailURL: href, tags: badges });
                         });
-                        window.webkit.messageHandlers.missavLog.postMessage('策略2 找到 ' + results.length + ' 个');
-                    }
-
-                    if (results.length === 0) {
-                        window.webkit.messageHandlers.missavLog.postMessage('两种策略都无结果，dump 页面结构');
-                        const dump = { tags: [], ids: [], classes: [], links: document.querySelectorAll('a').length };
-                        document.querySelectorAll('[class]').forEach(el => {
-                            (el.className || '').split(/\\\\s+/).forEach(c => { if(c) dump.classes.push(c); });
-                        });
-                        window.webkit.messageHandlers.missavLog.postMessage('页面结构: ' + JSON.stringify(dump));
-                        // 尝试直接抓取所有链接
-                        const allLinks = [];
-                        document.querySelectorAll('a').forEach(a => {
-                            if (a.href && !a.href.includes('#') && !a.href.includes('javascript')) {
-                                const text = a.textContent.trim().substring(0, 100);
-                                allLinks.push({ href: a.href.substring(0, 120), text: text });
-                            }
-                        });
-                        window.webkit.messageHandlers.missavLog.postMessage('所有链接: ' + JSON.stringify(allLinks.slice(0, 20)));
+                        window.webkit.messageHandlers.missavLog.postMessage('策略2 找到 ' + results.length + ' 个视频');
                     }
 
                     const seen = new Set();
@@ -400,8 +394,8 @@ extension MissAVViewModel {
                         seen.add(key);
                         return true;
                     });
+                    window.webkit.messageHandlers.missavLog.postMessage('去重后发送 ' + unique.length + ' 个结果');
                     window.webkit.messageHandlers.missavVideoList.postMessage(JSON.stringify({ items: unique }));
-                    window.webkit.messageHandlers.missavLog.postMessage('发送 ' + unique.length + ' 个结果');
                 } catch(e) {
                     window.webkit.messageHandlers.missavLog.postMessage('抓取错误: ' + e.message + ' ' + e.stack);
                 }
@@ -412,60 +406,59 @@ extension MissAVViewModel {
         """
     }
 
-    private static let extractM3U8JS = """
+    /// 自动点击播放器 + 提取 m3u8（atDocumentEnd 自动执行，不依赖 evaluateJavaScript）
+    private static let autoClickJS = """
     (() => {
-        window.webkit.messageHandlers.missavLog.postMessage('m3u8 提取脚本开始执行, URL: ' + location.href);
+        if (window.__missavAutoClickInstalled) return;
+        window.__missavAutoClickInstalled = true;
 
-        // 方法1: video source
-        const video = document.querySelector('video source[src*=".m3u8"], video[src*=".m3u8"]');
-        if (video) {
-            const src = video.src || video.getAttribute('src');
-            if (src) {
-                window.webkit.messageHandlers.missavLog.postMessage('方法1 找到 m3u8: ' + src);
-                window.webkit.messageHandlers.missavM3U8.postMessage(src);
-                return;
+        window.webkit.messageHandlers.missavLog.postMessage('autoClick 启动: ' + location.href);
+
+        function tryGetM3U8() {
+            // 从 video 元素直接读取
+            var v = document.querySelector('video');
+            if (v) {
+                var src = v.currentSrc || v.src || (v.querySelector('source') && v.querySelector('source').src);
+                if (src && src.indexOf('.m3u8') !== -1) {
+                    window.webkit.messageHandlers.missavM3U8.postMessage(src);
+                    window.webkit.messageHandlers.missavLog.postMessage('autoClick 找到 m3u8: ' + src);
+                    return true;
+                }
             }
+            // 所有带 m3u8 的元素
+            var els = document.querySelectorAll('[src*=\\".m3u8\\"], [href*=\\".m3u8\\"]');
+            for (var i = 0; i < els.length; i++) {
+                var val = els[i].src || els[i].href;
+                if (val) {
+                    window.webkit.messageHandlers.missavM3U8.postMessage(val);
+                    window.webkit.messageHandlers.missavLog.postMessage('autoClick 找到 m3u8 attr: ' + val);
+                    return true;
+                }
+            }
+            return false;
         }
 
-        // 方法2: script 中搜索
-        const scripts = document.querySelectorAll('script');
-        for (const s of scripts) {
-            const text = s.textContent || '';
-            const m3u8Regex = /https?://[^"']+\\\\.m3u8[^"']*/g;
-            const match = m3u8Regex.exec(text);
-            if (match) {
-                window.webkit.messageHandlers.missavLog.postMessage('方法2 找到 m3u8: ' + match[0]);
-                window.webkit.messageHandlers.missavM3U8.postMessage(match[0]);
-                return;
+        // 立即尝试
+        if (tryGetM3U8()) return;
+
+        // 等 1 秒后点击播放器
+        setTimeout(function() {
+            if (tryGetM3U8()) return;
+
+            var player = document.querySelector('.plyr, video, [class*=\\"player\\"], [class*=\\"video\\"]');
+            if (player) {
+                player.click();
+                window.webkit.messageHandlers.missavLog.postMessage('点击了播放器: ' + (player.className || player.tagName));
+            } else {
+                document.body && document.body.click();
+                window.webkit.messageHandlers.missavLog.postMessage('未找到播放器，点击 body');
             }
-        }
+        }, 1000);
 
-        // 方法3: 点击播放器
-        const player = document.querySelector('.plyr, video, [class*="player"], [class*="video"]');
-        window.webkit.messageHandlers.missavLog.postMessage('方法3: player 元素: ' + (player ? player.tagName + '.' + (player.className || '') : '无'));
-        if (player) {
-            player.click();
-            window.webkit.messageHandlers.missavLog.postMessage('点击了播放器');
-            setTimeout(() => {
-                const playBtn = document.querySelector('[class*="play"], [class*="start"], .plyr__control');
-                if (playBtn) { playBtn.click(); window.webkit.messageHandlers.missavLog.postMessage('点击了播放按钮'); }
-                else { window.webkit.messageHandlers.missavLog.postMessage('未找到播放按钮'); }
-            }, 1500);
-        } else {
-            window.webkit.messageHandlers.missavLog.postMessage('未找到播放器元素，尝试直接点击页面中央');
-            document.body?.click();
-        }
-
-        // 方法4: data 属性
-        document.querySelectorAll('[data-url*=".m3u8"], [data-src*=".m3u8"], [data-href*=".m3u8"]').forEach(el => {
-            const val = el.getAttribute('data-url') || el.getAttribute('data-src') || el.getAttribute('data-href') || '';
-            if (val) {
-                window.webkit.messageHandlers.missavLog.postMessage('方法4 找到 m3u8: ' + val);
-                window.webkit.messageHandlers.missavM3U8.postMessage(val);
-            }
-        });
-
-        window.webkit.messageHandlers.missavLog.postMessage('m3u8 提取执行完毕，等待网络请求拦截');
+        // 再等 3 秒再检查
+        setTimeout(function() {
+            tryGetM3U8();
+        }, 4000);
     })();
     """
 }

@@ -8,7 +8,8 @@ struct MissAVSearchView: View {
     @State private var showDebug = false
 
     private let columns = [
-        GridItem(.adaptive(minimum: 155), spacing: 12)
+        GridItem(.flexible(), spacing: 10),
+        GridItem(.flexible(), spacing: 10)
     ]
 
     var body: some View {
@@ -56,7 +57,7 @@ struct MissAVSearchView: View {
 
                 // 视频网格
                 ScrollView {
-                    LazyVGrid(columns: columns, spacing: 14) {
+                    LazyVGrid(columns: columns, spacing: 12) {
                         ForEach(vm.videos) { video in
                             VideoCardView(video: video)
                                 .onTapGesture {
@@ -262,20 +263,22 @@ struct VideoCardView: View {
     let video: MissAVMedia
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            // 封面
+        VStack(alignment: .leading, spacing: 5) {
+            // 封面 - 用 GeometryReader 撑满列宽
             ZStack(alignment: .topTrailing) {
                 AsyncImage(url: URL(string: video.coverURL)) { phase in
                     switch phase {
                     case .success(let img):
                         img.resizable()
                             .aspectRatio(contentMode: .fill)
-                            .frame(width: 155, height: 210)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 210)
                             .clipped()
                     case .failure:
                         Rectangle()
                             .fill(Color.appCard)
-                            .frame(width: 155, height: 210)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 210)
                             .overlay(
                                 Image(systemName: "photo")
                                     .foregroundColor(.appSecondary)
@@ -283,12 +286,14 @@ struct VideoCardView: View {
                     case .empty:
                         Rectangle()
                             .fill(Color.appCard)
-                            .frame(width: 155, height: 210)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 210)
                             .overlay(ProgressView())
                     @unknown default:
                         Rectangle()
                             .fill(Color.appCard)
-                            .frame(width: 155, height: 210)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 210)
                     }
                 }
 
@@ -317,7 +322,6 @@ struct VideoCardView: View {
                 .foregroundColor(.appForeground)
                 .lineLimit(2)
         }
-        .frame(width: 155)
     }
 }
 
@@ -332,6 +336,7 @@ extension MissAVSearchView {
                             .font(.system(size: 9, design: .monospaced))
                             .foregroundColor(.green)
                             .lineLimit(nil)
+                            .textSelection(.enabled)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 2)
                     }
