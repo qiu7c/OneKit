@@ -276,7 +276,7 @@ extension MissAVViewModel: WKScriptMessageHandler {
                 let videos = result.items.map { item -> MissAVMedia in
                     let code = Self.extractCode(from: item.detailURL) ?? "UNKNOWN"
                     let tag = Self.classify(url: item.detailURL, title: item.title, tags: item.tags)
-                    return MissAVMedia(id: code, title: item.title, coverURL: item.coverURL, detailURL: item.detailURL, tag: tag)
+                    return MissAVMedia(code: code, title: item.title, coverURL: item.coverURL, detailURL: item.detailURL, tag: tag)
                 }
                 cont.resume(returning: videos)
             } catch {
@@ -421,33 +421,37 @@ extension MissAVViewModel {
         window.webkit.messageHandlers.missavLog.postMessage('autoClick 启动: ' + location.href);
 
         // ---- 拦截 fetch/XHR ----
-        var _m3u8Url = null;
-        var _adDomains = ['saawsedge', 'doubleclick', 'googlesyndication', 'adservice', 'adserver'];
-        var _skippedAds = {};
-
-        function isAdURL(url) {
-            for (var i = 0; i < _adDomains.length; i++) {
-                if (url.indexOf(_adDomains[i]) !== -1) return true;
-            }
-            return false;
-        }
+        // 策略: 收集所有 m3u8 URL, 12 秒后报告最后一个(广告播完后的正片)
+        var _allM3U8 = [];
+        var _adDomains = ['doubleclick', 'googlesyndication', 'adservice', 'adserver'];
 
         function captureM3U8(url) {
-            if (!url || !url.indexOf) return false;
-            if (url.indexOf('playlist.m3u8') === -1 && url.indexOf('.m3u8') === -1) return false;
-            if (isAdURL(url)) {
-                if (!_skippedAds[url]) {
-                    _skippedAds[url] = true;
-                    window.webkit.messageHandlers.missavLog.postMessage('过滤广告 m3u8: ' + url);
+            if (!url || !url.indexOf) return;
+            if (url.indexOf('playlist.m3u8') === -1 && url.indexOf('.m3u8') === -1) return;
+            // 过滤明显广告域名, 但不过滤 CDN (saawsedge 可能同时有广告和正片)
+            for (var i = 0; i < _adDomains.length; i++) {
+                if (url.indexOf(_adDomains[i]) !== -1) return;
+            }
+            _allM3U8.push(url);
+            window.webkit.messageHandlers.missavLog.postMessage('收集 m3u8 [' + _allM3U8.length + ']: ' + url);
+        }
+
+        function reportM3U8() {
+            if (_allM3U8.length === 0) {
+                var v = document.querySelector('video');
+                if (v && v.src) {
+                    window.webkit.messageHandlers.missavM3U8.postMessage(v.src);
+                    window.webkit.messageHandlers.missavLog.postMessage('兜底 video.src: ' + v.src);
                 }
-                return false;
+                return;
             }
-            if (!_m3u8Url) {
-                _m3u8Url = url;
-                window.webkit.messageHandlers.missavM3U8.postMessage(url);
-                window.webkit.messageHandlers.missavLog.postMessage('捕获正片 m3u8: ' + url);
+            // 优先选 surrit 的正片, 没有则取最后一个
+            var pick = _allM3U8[_allM3U8.length - 1];
+            for (var i = 0; i < _allM3U8.length; i++) {
+                if (_allM3U8[i].indexOf('surrit') !== -1) { pick = _allM3U8[i]; break; }
             }
-            return true;
+            window.webkit.messageHandlers.missavM3U8.postMessage(pick);
+            window.webkit.messageHandlers.missavLog.postMessage('报告 m3u8 (共' + _allM3U8.length + '个, 优选surrit): ' + pick);
         }
 
         var origFetch = window.fetch;
@@ -494,24 +498,32 @@ extension MissAVViewModel {
 
                 doClick(cx, cy);
                 setTimeout(function() {
-                    if (!_m3u8Url) { doClick(cx, cy); window.webkit.messageHandlers.missavLog.postMessage('重试点击'); }
+                    if (_allM3U8.length === 0) { doClick(cx, cy); window.webkit.messageHandlers.missavLog.postMessage('重试点击'); }
                 }, 2000);
 
                 var waited = 0;
                 var checkInterval = setInterval(function() {
                     waited++;
-                    if (_m3u8Url) { clearInterval(checkInterval); return; }
                     var v = document.querySelector('video');
-                    if (v && v.src && v.src.indexOf('.m3u8') !== -1 && v.src !== _m3u8Url) captureM3U8(v.src);
-                    if (waited >= 20) { clearInterval(checkInterval); window.webkit.messageHandlers.missavLog.postMessage('轮询 20s 结束'); }
+                    if (v && v.src && v.src.indexOf('.m3u8') !== -1) captureM3U8(v.src);
+                    if (waited >= 12) {
+                        clearInterval(checkInterval);
+                        window.webkit.messageHandlers.missavLog.postMessage('轮询 12s 结束, 共收集 ' + _allM3U8.length + ' 个');
+                        reportM3U8();
+                    }
                 }, 1000);
             }
         }, 500);
 
         setTimeout(function() {
             if (!document.querySelector('.plyr, [class*="plyr"]')) {
-                window.webkit.messageHandlers.missavLog.postMessage('10s 无 .plyr，点击 body');
+                window.webkit.messageHandlers.missavLog.postMessage('10s 无 .plyr，点击 body 并等待 6s');
                 document.body && document.body.click();
+                setTimeout(function() {
+                    var v = document.querySelector('video');
+                    if (v && v.src && v.src.indexOf('.m3u8') !== -1) captureM3U8(v.src);
+                    reportM3U8();
+                }, 6000);
             }
         }, 10000);
     })();

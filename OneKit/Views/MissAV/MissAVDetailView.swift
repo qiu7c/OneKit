@@ -46,7 +46,7 @@ struct MissAVDetailView: View {
 
                 // 信息
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(video.id)
+                    Text(video.code)
                         .font(.title3).fontWeight(.bold)
                         .foregroundColor(.appForeground)
 

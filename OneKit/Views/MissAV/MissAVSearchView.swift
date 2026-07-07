@@ -229,7 +229,7 @@ struct VideoCardView: View {
             .aspectRatio(3/4, contentMode: .fit)
             .clipShape(RoundedRectangle(cornerRadius: 10))
 
-            Text(video.id)
+            Text(video.code)
                 .font(.caption2).fontWeight(.semibold)
                 .foregroundColor(.appSecondary)
                 .lineLimit(1)
@@ -270,7 +270,10 @@ extension MissAVSearchView {
                     Button("关闭") { showDebug = false }
                 }
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("清空") { vm.debugLog.removeAll() }
+                    HStack(spacing: 4) {
+                        Button("清空") { vm.debugLog.removeAll() }
+                        Button("复制") { UIPasteboard.general.string = vm.debugLog.joined(separator: "\n"); Haptic.success() }
+                    }
                 }
             }
         }

@@ -19,15 +19,18 @@ enum MissAVTag: String, CaseIterable, Codable {
 
 // MARK: - 视频条目
 struct MissAVMedia: Identifiable, Codable, Equatable {
-    let id: String         // 番号 MIDV-XXX
+    let uid = UUID()
+    let code: String       // 番号 MIDV-XXX
     let title: String      // 完整标题
     let coverURL: String   // 封面图 URL
     let detailURL: String  // 详情页 URL
     var tag: MissAVTag     // 分类标签
     var m3u8URL: String?   // 视频流地址（抓取后填充）
 
+    var id: String { uid.uuidString }
+
     static func == (lhs: MissAVMedia, rhs: MissAVMedia) -> Bool {
-        lhs.id == rhs.id
+        lhs.uid == rhs.uid
     }
 }
 
