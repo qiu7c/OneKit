@@ -18,10 +18,10 @@ struct ColorPaletteView: View {
         .background(Color.appBackground)
         .navigationTitle("调色板").navigationBarTitleDisplayMode(.inline).toolbar(.hidden, for: .tabBar)
         .fullScreenCover(isPresented: $showImageFlow) {
-            ImagePickFlowView { image in
-                if let img = image {
+            ImagePickFlowView { color in
+                if let c = color {
                     var r: CGFloat = 0; var g: CGFloat = 0; var b: CGFloat = 0; var a: CGFloat = 0
-                    UIColor(img).getRed(&r, green: &g, blue: &b, alpha: &a)
+                    UIColor(c).getRed(&r, green: &g, blue: &b, alpha: &a)
                     viewModel.customRed = Double(r); viewModel.customGreen = Double(g); viewModel.customBlue = Double(b)
                     viewModel.updateFromSliders()
                 }
@@ -106,7 +106,7 @@ struct ColorPaletteView: View {
 // MARK: - 一体化取色流程
 struct ImagePickFlowView: View {
     @Environment(\.dismiss) private var dismiss
-    let onComplete: (UIImage?) -> Void
+    let onComplete: (Color?) -> Void
     @State private var pickedImage: UIImage?
     @State private var showPHPicker = true
 
@@ -114,12 +114,7 @@ struct ImagePickFlowView: View {
         NavigationStack {
             if let img = pickedImage {
                 ImageColorPickerView(image: img) { color in
-                    let renderer = UIGraphicsImageRenderer(size: CGSize(width: 1, height: 1))
-                    let uiImg = renderer.image { ctx in
-                        ctx.cgContext.setFillColor(UIColor(color).cgColor)
-                        ctx.fill(CGRect(x: 0, y: 0, width: 1, height: 1))
-                    }
-                    onComplete(uiImg)
+                    onComplete(color)
                     dismiss()
                 }
             } else {
