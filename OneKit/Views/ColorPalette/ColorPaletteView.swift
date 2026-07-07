@@ -4,9 +4,9 @@ import PhotosUI
 struct ColorPaletteView: View {
     @StateObject private var viewModel = ColorPaletteViewModel()
     @State private var showCopied = false
-    @State private var showImagePicker = false
+    @State private var showPicker = false
     @State private var pickedImage: UIImage?
-    @State private var showColorPickerSheet = false
+    @State private var showColorPicker = false
 
     var body: some View {
         ScrollView {
@@ -27,13 +27,7 @@ struct ColorPaletteView: View {
         .navigationTitle("调色板")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
-        .sheet(isPresented: $showImagePicker) {
-            PhotoPickerView { img in
-                pickedImage = img
-                showColorPickerSheet = true
-            }
-        }
-        .sheet(isPresented: $showColorPickerSheet) {
+        .sheet(isPresented: $showColorPicker) {
             ImageColorPickerView(image: pickedImage ?? UIImage()) { color in
                 var r: CGFloat = 0; var g: CGFloat = 0; var b: CGFloat = 0; var a: CGFloat = 0
                 UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
@@ -41,12 +35,25 @@ struct ColorPaletteView: View {
                 viewModel.updateFromSliders()
             }
         }
+
+        // 用 background 层的 sheet 处理选照片，避免 sheet 嵌套
+        .background(
+            EmptyView().sheet(isPresented: $showPicker) {
+                PhotoPickerView { img in
+                    pickedImage = img
+                    showPicker = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        showColorPicker = true
+                    }
+                }
+            }
+        )
     }
 
     private var imageColorPickerSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("图片取色").font(.headline).fontWeight(.semibold).foregroundColor(.appForeground)
-            Button { showImagePicker = true } label: {
+            Button { showPicker = true } label: {
                 HStack { Image(systemName: "photo.on.rectangle"); Text("从照片取色") }
                     .font(.subheadline).fontWeight(.medium).frame(maxWidth: .infinity).frame(height: 44)
                     .foregroundColor(.appForeground).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 10))
@@ -80,8 +87,7 @@ struct ColorPaletteView: View {
         VStack(spacing: 4) {
             Text(t).font(.system(size: 9)).fontWeight(.semibold).foregroundColor(.appTertiary)
             Text(v).font(.system(size: 11, design: .monospaced)).foregroundColor(.appForeground).lineLimit(1).minimumScaleFactor(0.7)
-        }
-        .frame(maxWidth: .infinity).padding(10).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 10))
+        }.frame(maxWidth: .infinity).padding(10).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
     private var hexInputSection: some View {
@@ -120,8 +126,7 @@ struct ColorPaletteView: View {
             .onChange(of: viewModel.customGreen) { _ in viewModel.updateFromSliders() }
             .onChange(of: viewModel.customBlue) { _ in viewModel.updateFromSliders() }
             .onChange(of: viewModel.customOpacity) { _ in viewModel.updateFromSliders() }
-        }
-        .padding(16).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 16))
+        }.padding(16).background(Color.appCard).clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
     private func sliderRow(_ l: String, _ c: Color, _ v: Binding<Double>) -> some View {
@@ -147,21 +152,15 @@ struct ColorPaletteView: View {
     }
 }
 
-// MARK: - 照片选择器 (UIKit 封装，避免 SwiftUI PhotosPicker 冷启动问题)
+// MARK: - UIKit 照片选择器
 struct PhotoPickerView: UIViewControllerRepresentable {
     let onPick: (UIImage) -> Void
 
     func makeUIViewController(context: Context) -> PHPickerViewController {
-        var config = PHPickerConfiguration()
-        config.filter = .images
-        config.selectionLimit = 1
-        let picker = PHPickerViewController(configuration: config)
-        picker.delegate = context.coordinator
-        return picker
+        var c = PHPickerConfiguration(); c.filter = .images; c.selectionLimit = 1
+        let p = PHPickerViewController(configuration: c); p.delegate = context.coordinator; return p
     }
-
     func updateUIViewController(_: PHPickerViewController, context: Context) {}
-
     func makeCoordinator() -> Coordinator { Coordinator(onPick: onPick) }
 
     class Coordinator: NSObject, PHPickerViewControllerDelegate {
@@ -169,13 +168,9 @@ struct PhotoPickerView: UIViewControllerRepresentable {
         init(onPick: @escaping (UIImage) -> Void) { self.onPick = onPick }
         func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
             picker.dismiss(animated: true)
-            guard let result = results.first else { return }
-            if result.itemProvider.canLoadObject(ofClass: UIImage.self) {
-                result.itemProvider.loadObject(ofClass: UIImage.self) { img, _ in
-                    if let image = img as? UIImage {
-                        DispatchQueue.main.async { self.onPick(image) }
-                    }
-                }
+            guard let result = results.first, result.itemProvider.canLoadObject(ofClass: UIImage.self) else { return }
+            result.itemProvider.loadObject(ofClass: UIImage.self) { img, _ in
+                if let image = img as? UIImage { DispatchQueue.main.async { self.onPick(image) } }
             }
         }
     }

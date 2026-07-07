@@ -7,42 +7,31 @@ struct IconDownloaderView: View {
 
     var body: some View {
         ZStack {
-            if viewModel.searchResults.isEmpty && !viewModel.isSearching {
-                emptyStateView
-            } else {
-                resultsList
-            }
+            if viewModel.searchResults.isEmpty && !viewModel.isSearching { emptyStateView }
+            else { resultsList }
+
             if viewModel.isSearching {
                 ProgressView().scaleEffect(1.2).frame(maxWidth: .infinity, maxHeight: .infinity).background(Color.appBackground.opacity(0.8))
             }
 
-            // 自定义错误弹窗 (代替 .alert，避免冷启动空白)
+            // 自定义错误弹窗 (不用 .alert，避免冷启动空白)
             if viewModel.showError {
-                Color.black.opacity(0.3).ignoresSafeArea()
-                    .overlay(
-                        VStack(spacing: 16) {
-                            Text("提示").font(.headline).fontWeight(.bold).foregroundColor(.appForeground)
-                            Text(viewModel.errorMessage?.isEmpty == false ? viewModel.errorMessage! : "请求失败，请检查网络连接")
-                                .font(.body).foregroundColor(.appSecondary).multilineTextAlignment(.center)
-                            Button {
-                                viewModel.showError = false
-                            } label: {
-                                Text("确定").fontWeight(.semibold).foregroundColor(.white)
-                                    .frame(maxWidth: .infinity).frame(height: 40)
-                                    .background(Color.appForeground).clipShape(RoundedRectangle(cornerRadius: 10))
-                            }
-                        }
-                        .padding(24)
-                        .background(Color.appBackground)
-                        .clipShape(RoundedRectangle(cornerRadius: 16))
-                        .shadow(color: .black.opacity(0.15), radius: 20)
-                        .padding(40)
-                    )
-                    .transition(.opacity)
-                    .zIndex(100)
+                Rectangle().fill(Color.black.opacity(0.3)).ignoresSafeArea()
+                VStack(spacing: 16) {
+                    Text("提示").font(.headline).fontWeight(.bold).foregroundColor(.appForeground)
+                    Text(viewModel.errorMessage?.isEmpty == false ? viewModel.errorMessage! : "请求失败，请检查网络连接")
+                        .font(.body).foregroundColor(.appSecondary).multilineTextAlignment(.center)
+                    Button { viewModel.showError = false } label: {
+                        Text("确定").fontWeight(.semibold).foregroundColor(.white)
+                            .frame(maxWidth: .infinity).frame(height: 40)
+                            .background(Color.appForeground).clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
+                }
+                .padding(24).background(Color.appBackground).clipShape(RoundedRectangle(cornerRadius: 16))
+                .shadow(color: .black.opacity(0.15), radius: 20)
+                .padding(40)
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: viewModel.showError)
         .background(Color.appBackground)
         .navigationTitle("图标下载")
         .navigationBarTitleDisplayMode(.inline)
@@ -50,9 +39,7 @@ struct IconDownloaderView: View {
         .searchable(text: $viewModel.searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索 App 名称...")
         .onSubmit(of: .search) { Task { await viewModel.search() } }
         .onChange(of: viewModel.searchText) { v in if v.isEmpty { viewModel.clearResults() } }
-        .sheet(isPresented: $showDetail) {
-            if let app = selectedApp { IconPreviewView(app: app, viewModel: viewModel) }
-        }
+        .sheet(isPresented: $showDetail) { if let app = selectedApp { IconPreviewView(app: app, viewModel: viewModel) } }
     }
 
     private var emptyStateView: some View {
