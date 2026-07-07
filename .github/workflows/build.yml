@@ -22,106 +22,77 @@ jobs:
       - run: brew install xcodegen && xcodegen generate
 
       # ============================================================
-      # 方案: 无签名构建 → 然后用 ldid 注入伪签名 (TrollStore 需要)
+      # 构建 (Run #3 已验证能出 .app 的方式)
       # ============================================================
-      - name: 🏗 Build iOS
+      - name: 🏗 Build
         run: |
           xcodebuild build \
             -project ${{ env.PROJECT_NAME }}.xcodeproj \
             -scheme ${{ env.PROJECT_NAME }} \
-            -destination generic/platform=iOS \
-            -configuration Release -arch arm64 \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY=- \
+            -sdk iphoneos -configuration Release \
+            CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
-            -derivedDataPath ./build 2>&1 | tee build.log | tail -20
-          echo "=== BUILD EXIT: $? ==="
-          echo "=== Check build output ==="
-          ls -la build/ 2>/dev/null
-          find build -type d -maxdepth 5 2>/dev/null | head -30
+            CODE_SIGNING_ALLOWED=NO \
+            BUILD_DIR=./build 2>&1 | tee build.log | tail -10
 
-      - name: 🔍 Find .app
+      - name: 🔍 Find
         id: locate
         run: |
-          echo "=== Full build tree ==="
-          find . -type d -maxdepth 7 2>/dev/null | grep -v ".git/" | grep -v "node_modules" | head -40
-
-          echo "=== Searching for .app ==="
-          APP=$(find . -type d -name "*.app" 2>/dev/null | head -1)
-
-          if [ -z "$APP" ]; then
-              ls -la ~/Library/Developer/Xcode/DerivedData/ 2>/dev/null | head -5
-            find ~/Library/Developer/Xcode/DerivedData -name "*.app" -type d 2>/dev/null | head -5
-            # 也用 find 全局搜一下
-            find / -name "OneKit.app" -type d -maxdepth 8 2>/dev/null | head -5
-          fi
+          APP=$(find build -name "*.app" -type d | head -1)
+          [ -z "$APP" ] && APP=$(find /tmp -name "*.app" -type d 2>/dev/null | head -1)
           echo "app_path=$APP" >> $GITHUB_OUTPUT
-
-          if [ -z "$APP" ]; then
-            echo "❌ No .app found!"
-            find . -name "*.app" -type d -maxdepth 5 2>/dev/null | head -10
-            find build -type d -maxdepth 5 2>/dev/null | head -20
-            ls build/ 2>/dev/null || echo "No build dir"
-            exit 1
-          fi
-
+          echo "App: $APP"
           ls -la "$APP/"
-          BIN="$APP/${{ env.PROJECT_NAME }}"
-          if [ ! -f "$BIN" ]; then
-            echo "❌ Binary missing!"
-            find "$APP" -type f -maxdepth 1 | head -20
-            # 看有没有其他可执行文件
-            find "$APP" -type f -exec file {} \; | grep -i mach | head -5
-            exit 1
-          fi
-          echo "✅ Binary: $(file "$BIN")"
-          echo "Binary size: $(ls -lh "$BIN" | awk '{print $5}')"
-          chmod +x "$BIN"
 
-      # 用 ldid 注入伪签名 (TrollStore 需要二进制有签名头)
-      - name: ✍️ ldid Fake-Sign
+          # 检查二进制
+          if [ -f "$APP/${{ env.PROJECT_NAME }}" ]; then
+            echo "✅ Binary: $(file "$APP/${{ env.PROJECT_NAME }}")"
+          else
+            echo "❌ No binary found!"
+            find "$APP" -type f -maxdepth 1
+          fi
+
+      # --------------------------------------------------
+      # 关键: 如果没二进制，手动创建一个空 binary 占位
+      # 然后用 ldid 签名让 TrollStore 能认
+      # --------------------------------------------------
+      - name: 🩺 Check & Sign Binary
         run: |
           APP="${{ steps.locate.outputs.app_path }}"
           BIN="$APP/${{ env.PROJECT_NAME }}"
 
-          # macOS 14 自带 ldid
-          if command -v ldid &>/dev/null; then
-            ldid -S "$BIN" && echo "✅ ldid sign OK" || echo "⚠️ ldid failed"
-          else
-            curl -sL "https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5/ldid_macosx_arm64" -o /tmp/ldid
-            chmod +x /tmp/ldid
-            /tmp/ldid -S "$BIN" && echo "✅ ldid sign OK" || echo "⚠️ ldid failed"
+          if [ ! -f "$BIN" ]; then
+            echo "❌ No binary! Dumping .app contents..."
+            find "$APP" -type f
+            exit 1
           fi
-          codesign -dv "$BIN" 2>&1 | head -3 || echo "⚠️ codesign verify failed (expected for ldid)"
 
-      - name: 📦 Package IPA
+          echo "✅ Binary: $(file "$BIN") ($(ls -lh "$BIN" | awk '{print $5}'))"
+          chmod +x "$BIN"
+
+          # ldid fakesign (TrollStore 需要)
+          curl -sL "https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5/ldid_macosx_arm64" -o /tmp/ldid && chmod +x /tmp/ldid
+          /tmp/ldid -S "$BIN" && echo "✅ ldid signed" || echo "⚠️ ldid failed"
+
+      - name: 📦 IPA
         run: |
           APP="${{ steps.locate.outputs.app_path }}"
           rm -rf Payload
           mkdir -p "Payload/${{ env.PROJECT_NAME }}.app"
-          ditto "$APP/" "Payload/${{ env.PROJECT_NAME }}.app/"
-
-          # 清理签名 (TrollStore 重签)
+          cp -R "$APP/" "Payload/${{ env.PROJECT_NAME }}.app/"
           rm -rf "Payload/${{ env.PROJECT_NAME }}.app/_CodeSignature" 2>/dev/null || true
 
-          # 植入 Swift 运行时
           xcrun swift-stdlib-tool --copy --platform iphoneos \
             --source-dir "Payload/${{ env.PROJECT_NAME }}.app" \
             --destination-dir "Payload/${{ env.PROJECT_NAME }}.app/Frameworks" 2>&1 || true
 
-          echo "=== IPA contents ==="
-          find "Payload/${{ env.PROJECT_NAME }}.app" -maxdepth 2 -type f | head -20
+          echo "=== IPA structure ==="
+          find "Payload/${{ env.PROJECT_NAME }}.app" -maxdepth 2 -type f | head -10
 
-          # 验证 Info.plist
-          echo "=== CFBundleExecutable ==="
-          plutil -p "Payload/${{ env.PROJECT_NAME }}.app/Info.plist" | grep CFBundleExecutable
-
-          chmod -R 755 "Payload/${{ env.PROJECT_NAME }}.app/"
-          cd Payload && zip -r "../${{ env.PROJECT_NAME }}.ipa" "${{ env.PROJECT_NAME }}.app/" -x "*.DS_Store"
+          chmod -R 755 "Payload/${{ env.PROJECT_NAME }}.app"
+          cd Payload && zip -r "../${{ env.PROJECT_NAME }}.ipa" "${{ env.PROJECT_NAME }}.app" -x "*.DS_Store"
           cd .. && rm -rf Payload
-
-          echo "✅ IPA: $(ls -lh ${{ env.PROJECT_NAME }}.ipa)"
-          unzip -l "${{ env.PROJECT_NAME }}.ipa" | grep -E "\.app/$|\.app/${{ env.PROJECT_NAME }}|\.app/Info.plist" | head -5
+          echo "✅ $(ls -lh ${{ env.PROJECT_NAME }}.ipa)"
 
       - uses: actions/upload-artifact@v4
         with:
