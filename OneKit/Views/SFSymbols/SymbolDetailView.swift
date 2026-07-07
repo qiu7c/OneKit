@@ -26,33 +26,14 @@ struct SymbolDetailView: View {
 
                 // 信息
                 VStack(spacing: 8) {
-                    Text(symbol.name)
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.appForeground)
-
                     Text(symbol.id)
+                        .font(.body)
                         .font(.system(.body, design: .monospaced))
                         .foregroundColor(.appSecondary)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
                         .background(Color.appCard)
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-
-                    Text("可用性: \(symbol.availability)")
-                        .font(.caption)
-                        .foregroundColor(.appTertiary)
-
-                    if symbol.isMulticolor {
-                        HStack(spacing: 4) {
-                            Circle()
-                                .fill(Color.red)
-                                .frame(width: 8, height: 8)
-                            Text("支持多色渲染")
-                                .font(.caption)
-                                .foregroundColor(.appSecondary)
-                        }
-                    }
                 }
 
                 Spacer()
