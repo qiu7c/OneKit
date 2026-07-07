@@ -1,102 +1,55 @@
 import SwiftUI
-import Combine
 
-// MARK: - 调色板 ViewModel
 @MainActor
 class ColorPaletteViewModel: ObservableObject {
     @Published var selectedColor: PaletteColor = PaletteColor.presets[0]
     @Published var savedColors: [PaletteColor] = []
     @Published var selectedHarmony: ColorHarmonyType = .complementary
-    @Published var showColorPicker = false
     @Published var customRed: Double = 0.5
     @Published var customGreen: Double = 0.5
     @Published var customBlue: Double = 0.5
     @Published var customOpacity: Double = 1.0
+    @Published var hexInput: String = "#4F46E5"
 
     private let saveKey = "saved_palette_colors"
 
-    init() {
-        loadSavedColors()
-    }
+    init() { loadSavedColors() }
 
-    // MARK: - 预设颜色选择
+    var currentColor: Color { Color(red: customRed, green: customGreen, blue: customBlue, opacity: customOpacity) }
+
     func selectPreset(_ color: PaletteColor) {
         selectedColor = color
-        updateCustomSliders(from: color)
+        customRed = color.red; customGreen = color.green; customBlue = color.blue; customOpacity = color.alpha
+        hexInput = color.hexString
         Haptic.selection()
     }
 
-    // MARK: - 自定义颜色更新
-    func updateCustomColor() {
-        let hex = String(format: "#%02X%02X%02X",
-            Int(customRed * 255), Int(customGreen * 255), Int(customBlue * 255))
-        selectedColor = PaletteColor(
-            name: "自定义",
-            hex: hex,
-            red: customRed,
-            green: customGreen,
-            blue: customBlue,
-            alpha: customOpacity
-        )
+    func updateFromSliders() {
+        selectedColor = PaletteColor(name: "自定义", hex: hexFromRGB(), red: customRed, green: customGreen, blue: customBlue, alpha: customOpacity)
+        hexInput = selectedColor.hexString
     }
 
-    // MARK: - 从预设更新滑块
-    private func updateCustomSliders(from color: PaletteColor) {
-        customRed = color.red
-        customGreen = color.green
-        customBlue = color.blue
-        customOpacity = color.alpha
+    func applyHexInput() {
+        let hex = hexInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard hex.hasPrefix("#"), hex.count == 7, let rgb = Int(hex.dropFirst(), radix: 16) else { return }
+        let r = Double((rgb >> 16) & 0xFF) / 255
+        let g = Double((rgb >> 8) & 0xFF) / 255
+        let b = Double(rgb & 0xFF) / 255
+        customRed = r; customGreen = g; customBlue = b
+        selectedColor = PaletteColor(name: "自定义", hex: hex, red: r, green: g, blue: b, alpha: customOpacity)
     }
 
-    // MARK: - 保存颜色
+    private func hexFromRGB() -> String { String(format: "#%02X%02X%02X", Int(customRed*255), Int(customGreen*255), Int(customBlue*255)) }
+
     func saveCurrentColor() {
-        var color = selectedColor
-        if color.name == "自定义" || color.name.isEmpty {
-            color = PaletteColor(
-                name: "颜色 \(savedColors.count + 1)",
-                hex: color.hex,
-                red: color.red,
-                green: color.green,
-                blue: color.blue,
-                alpha: color.alpha
-            )
-        }
-        if !savedColors.contains(where: { $0.hex == color.hex }) {
-            savedColors.insert(color, at: 0)
-            saveColors()
-            Haptic.success()
-        }
+        let c = PaletteColor(name: "颜色 \(savedColors.count + 1)", hex: selectedColor.hexString, red: selectedColor.red, green: selectedColor.green, blue: selectedColor.blue, alpha: selectedColor.alpha)
+        if !savedColors.contains(where: { $0.hex == c.hex }) { savedColors.insert(c, at: 0); saveColors(); Haptic.success() }
     }
 
-    // MARK: - 删除保存的颜色
-    func deleteColor(_ color: PaletteColor) {
-        savedColors.removeAll { $0.id == color.id }
-        saveColors()
-    }
+    func deleteColor(_ color: PaletteColor) { savedColors.removeAll { $0.id == color.id }; saveColors() }
+    func copyHex(_ color: PaletteColor) { UIPasteboard.general.string = color.hexString; Haptic.success() }
+    func copyRGB(_ color: PaletteColor) { UIPasteboard.general.string = color.rgbString; Haptic.success() }
 
-    // MARK: - 复制颜色值
-    func copyHex(_ color: PaletteColor) {
-        UIPasteboard.general.string = color.hexString
-        Haptic.success()
-    }
-
-    func copyRGB(_ color: PaletteColor) {
-        UIPasteboard.general.string = color.rgbString
-        Haptic.success()
-    }
-
-    // MARK: - 持久化存储
-    private func saveColors() {
-        if let data = try? JSONEncoder().encode(savedColors) {
-            UserDefaults.standard.set(data, forKey: saveKey)
-        }
-    }
-
-    private func loadSavedColors() {
-        guard let data = UserDefaults.standard.data(forKey: saveKey),
-              let colors = try? JSONDecoder().decode([PaletteColor].self, from: data) else {
-            return
-        }
-        savedColors = colors
-    }
+    private func saveColors() { if let d = try? JSONEncoder().encode(savedColors) { UserDefaults.standard.set(d, forKey: saveKey) } }
+    private func loadSavedColors() { guard let d = UserDefaults.standard.data(forKey: saveKey), let c = try? JSONDecoder().decode([PaletteColor].self, from: d) else { return }; savedColors = c }
 }

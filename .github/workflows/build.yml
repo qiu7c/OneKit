@@ -33,10 +33,14 @@ jobs:
           plutil -replace CFBundleShortVersionString -string "1.0.0" Payload/OneKit.app/Info.plist
           plutil -replace CFBundleVersion -string "1" Payload/OneKit.app/Info.plist
           plutil -replace MinimumOSVersion -string "16.0" Payload/OneKit.app/Info.plist
+
+          # 编译 Assets.car
           xcrun actool OneKit/Resources/Assets.xcassets --compile Payload/OneKit.app/ \
-            --platform iphoneos --minimum-deployment-target 16.0 --app-icon AppIcon \
-            --output-partial-info-plist /tmp/icon.plist 2>&1 || true
-          [ -f /tmp/icon.plist ] && plutil -merge /tmp/icon.plist Payload/OneKit.app/Info.plist 2>/dev/null || true
+            --platform iphoneos --minimum-deployment-target 16.0 --app-icon AppIcon 2>&1 || true
+
+          # 写死图标配置 (保底)
+          plutil -insert CFBundleIcons -json '{"CFBundlePrimaryIcon":{"CFBundleIconFiles":["AppIcon60x60"],"UIPrerenderedIcon":false}}' Payload/OneKit.app/Info.plist 2>/dev/null || true
+
           chmod -R 755 Payload/OneKit.app/
           zip -r OneKit.ipa Payload/ -x "*.DS_Store"
           rm -rf Payload
