@@ -19,13 +19,13 @@ enum MissAVTag: String, CaseIterable, Codable {
 
 // MARK: - 视频条目
 struct MissAVMedia: Identifiable, Codable, Equatable {
-    let uid = UUID()
     let code: String       // 番号 MIDV-XXX
     let title: String      // 完整标题
     let coverURL: String   // 封面图 URL
     let detailURL: String  // 详情页 URL
     var tag: MissAVTag     // 分类标签
     var m3u8URL: String?   // 视频流地址（抓取后填充）
+    private let uid = UUID()
 
     var id: String { uid.uuidString }
 
@@ -49,4 +49,5 @@ struct MissAVM3U8Result: Codable {
 // MARK: - 搜索结果
 struct MissAVSearchResult: Codable {
     let items: [MissAVScrapedItem]
+    let hasNext: Bool
 }

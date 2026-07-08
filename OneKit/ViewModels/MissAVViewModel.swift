@@ -31,12 +31,16 @@ final class MissAVViewModel: NSObject, ObservableObject {
     @Published var searchText = ""
     @Published var selectedVideo: MissAVMedia?
     @Published var debugLog: [String] = []
+    @Published var currentPage = 1
+    @Published var hasNextPage = false
+    @Published var isLoadingMore = false
 
     internal var webView: WKWebView?
     private let baseURL = "https://missav.ai"
+    private var lastQuery = ""
     private var isSearching = false
 
-    private var searchContinuation: CheckedContinuation<[MissAVMedia], Error>?
+    private var searchContinuation: CheckedContinuation<ScrapePageResult, Error>?
     private var m3u8Continuation: CheckedContinuation<String, Error>?
 
     private enum MessageName: String, CaseIterable {
@@ -73,7 +77,9 @@ final class MissAVViewModel: NSObject, ObservableObject {
         }
 
         // Enable JS
-        config.preferences.javaScriptEnabled = true
+        let webpagePref = WKWebpagePreferences()
+        webpagePref.allowsContentJavaScript = true
+        config.defaultWebpagePreferences = webpagePref
 
         // 拦截 m3u8 请求（页面最早阶段注入）
         let interceptionScript = WKUserScript(
@@ -105,9 +111,9 @@ final class MissAVViewModel: NSObject, ObservableObject {
         guard let webView = webView else { log("⚠️ attachToWindow: webView 为 nil"); return }
         guard webView.superview == nil else { log("⏭️ attachToWindow: 已在窗口层级中"); return }
         webView.isHidden = false
-        webView.alpha = 0.02
-        webView.isUserInteractionEnabled = false  // 不拦截触摸事件
-        webView.frame = CGRect(x: 0, y: 0, width: 320, height: 480)
+        webView.alpha = 1.0
+        webView.isUserInteractionEnabled = false
+        webView.frame = CGRect(x: -500, y: -500, width: 320, height: 480)
         if let window = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
             .first?.windows.first {
@@ -128,17 +134,38 @@ final class MissAVViewModel: NSObject, ObservableObject {
 extension MissAVViewModel {
     func search(query: String) async throws -> [MissAVMedia] {
         guard !query.trimmingCharacters(in: .whitespaces).isEmpty else { return [] }
-        // 防重入：正在搜索时忽略新请求
         if isSearching { throw MissAVError.searchInProgress }
         isSearching = true
         defer { isSearching = false }
+        lastQuery = query
 
-        await MainActor.run { self.state = .searching }
-        if webView == nil { log("⚠️ search: webView 为 nil，重新创建"); setupWebView() }
+        await MainActor.run { self.state = .searching; self.videos = [] }
+        if webView == nil { setupWebView() }
         attachToWindow()
 
+        var allResults: [MissAVMedia] = []
+        var page = 1
+        var hasMore = true
+
+        while hasMore {
+            let pageResults = try await scrapePage(query: query, page: page)
+            allResults += pageResults.results
+            hasMore = pageResults.hasNext
+            page += 1
+        }
+
+        await MainActor.run {
+            self.videos = allResults
+            self.currentPage = page - 1
+            self.hasNextPage = false
+            self.state = .loaded(count: allResults.count)
+        }
+        return allResults
+    }
+
+    /// 抓取单页
+    private func scrapePage(query: String, page: Int) async throws -> (results: [MissAVMedia], hasNext: Bool) {
         return try await withCheckedThrowingContinuation { continuation in
-            // 清除旧 continuation 和导航
             self.searchContinuation?.resume(throwing: MissAVError.cancelled)
             self.searchContinuation = nil
             webView?.stopLoading()
@@ -146,21 +173,18 @@ extension MissAVViewModel {
             self.searchContinuation = continuation
 
             let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
-            let urlStr = "\(baseURL)/cn/search/\(encoded)"
+            var urlStr = "\(baseURL)/cn/search/\(encoded)"
+            if page > 1 { urlStr += "?page=\(page)" }
             guard let url = URL(string: urlStr) else {
-                log("❌ 无效 URL: \(urlStr)")
                 continuation.resume(throwing: MissAVError.invalidURL)
                 return
             }
-            log("🔍 搜索: \(urlStr)")
-            let req = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 30)
-            webView?.load(req)
+            log("🔍 搜索第\(page)页: \(urlStr)")
+            webView?.load(URLRequest(url: url))
 
             DispatchQueue.main.asyncAfter(deadline: .now() + 15) { [weak self] in
                 guard let self = self, let cont = self.searchContinuation else { return }
                 self.searchContinuation = nil
-                self.log("⏰ 搜索超时 15s")
-                self.dumpPageState()
                 cont.resume(throwing: MissAVError.timeout)
             }
         }
@@ -321,13 +345,12 @@ extension MissAVViewModel: WKScriptMessageHandler {
                     return
                 }
                 let result = try JSONDecoder().decode(MissAVSearchResult.self, from: data)
-                log("✅ 解析到 \(result.items.count) 个视频")
                 let videos = result.items.map { item -> MissAVMedia in
                     let code = Self.extractCode(from: item.detailURL) ?? "UNKNOWN"
                     let tag = Self.classify(url: item.detailURL, title: item.title, tags: item.tags)
                     return MissAVMedia(code: code, title: item.title, coverURL: item.coverURL, detailURL: item.detailURL, tag: tag)
                 }
-                cont.resume(returning: videos)
+                cont.resume(returning: ScrapePageResult(results: videos, hasNext: result.hasNext))
             } catch {
                 log("❌ videoList 解析失败: \(error.localizedDescription)")
                 cont.resume(throwing: MissAVError.parseError)
@@ -431,8 +454,9 @@ extension MissAVViewModel {
                         if (seen[key]) return false; seen[key] = true; return true;
                     });
 
-                    window.webkit.messageHandlers.missavLog.postMessage('去重后发送 ' + unique.length + ' 个');
-                    window.webkit.messageHandlers.missavVideoList.postMessage(JSON.stringify({ items: unique }));
+                    var hasNext = !!document.querySelector('a[rel="next"]');
+                    window.webkit.messageHandlers.missavLog.postMessage('去重后发送 ' + unique.length + ' 个, hasNext=' + hasNext);
+                    window.webkit.messageHandlers.missavVideoList.postMessage(JSON.stringify({ items: unique, hasNext: hasNext }));
                 } catch(e) { window.webkit.messageHandlers.missavLog.postMessage('错误: ' + e.message); }
             };
             setTimeout(tryScrape, 3000);
@@ -512,6 +536,12 @@ extension MissAVViewModel {
         if isUncensored { return .uncensored }
         return .normal
     }
+}
+
+// MARK: - 单页搜索结果
+struct ScrapePageResult {
+    let results: [MissAVMedia]
+    let hasNext: Bool
 }
 
 // MARK: - 错误

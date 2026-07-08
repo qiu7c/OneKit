@@ -1,5 +1,4 @@
 import SwiftUI
-import AVKit
 
 struct MissAVDetailView: View {
     let video: MissAVMedia
@@ -9,139 +8,119 @@ struct MissAVDetailView: View {
     @State private var errorMsg: String?
     @State private var showPlayer = false
     @State private var showDebug = false
-    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                // 封面大图
-                ZStack(alignment: .topTrailing) {
-                    AsyncImage(url: URL(string: video.coverURL)) { phase in
-                        switch phase {
-                        case .success(let img):
-                            img.resizable().aspectRatio(contentMode: .fill)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 280)
-                                .clipped()
-                        case .failure:
-                            Rectangle().fill(Color.appCard).frame(height: 280)
-                                .overlay(Image(systemName: "photo").foregroundColor(.appSecondary))
-                        case .empty:
-                            Rectangle().fill(Color.appCard).frame(height: 280)
-                                .overlay(ProgressView())
-                        @unknown default:
-                            Rectangle().fill(Color.appCard).frame(height: 280)
-                        }
-                    }
-
-                    Text(video.tag.rawValue)
-                        .font(.system(size: 10, weight: .bold)).foregroundColor(.white)
-                        .padding(.horizontal, 8).padding(.vertical, 4)
-                        .background(Color(hex: video.tag.color)).clipShape(Capsule())
-                        .padding(10)
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-
-                // 信息
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(video.code)
-                        .font(.title3).fontWeight(.bold)
-                        .foregroundColor(.appForeground)
-
-                    Text(video.title)
-                        .font(.body)
-                        .foregroundColor(.appSecondary)
-                        .lineLimit(4)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-
-                // 解析状态 / 结果
-                VStack(spacing: 12) {
-                    if isLoading {
-                        HStack(spacing: 10) {
-                            ProgressView().scaleEffect(1.1)
-                            Text("正在解析视频地址...")
-                                .font(.subheadline).foregroundColor(.appSecondary)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 30)
-                        .background(Color.appCard)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-
-                    } else if let err = errorMsg {
-                        VStack(spacing: 10) {
-                            Image(systemName: "exclamationmark.triangle").font(.title2).foregroundColor(.orange)
-                            Text(err).font(.subheadline).foregroundColor(.appSecondary).multilineTextAlignment(.center)
-                            Button("重试") { startExtract() }
-                                .fontWeight(.semibold).foregroundColor(Color.appBackground)
-                                .padding(.horizontal, 32).padding(.vertical, 10)
-                                .background(Color.appForeground).clipShape(RoundedRectangle(cornerRadius: 8))
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 24)
-                        .background(Color.appCard)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-
-                    } else if let url = m3u8URL {
-                        VStack(spacing: 14) {
-                            // 播放按钮
-                            Button {
-                                showPlayer = true
-                            } label: {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "play.fill")
-                                    Text("播放")
-                                }
-                                .font(.headline).fontWeight(.semibold)
-                                .foregroundColor(Color.appBackground)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 50)
-                                .background(Color.appForeground)
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
-                            }
-
-                            // m3u8 链接
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("视频流地址")
-                                    .font(.caption).fontWeight(.semibold)
-                                    .foregroundColor(.appSecondary)
-
-                                HStack {
-                                    Text(url)
-                                        .font(.system(size: 10, design: .monospaced))
-                                        .foregroundColor(.appSecondary)
-                                        .lineLimit(2)
-                                        .textSelection(.enabled)
-
-                                    Spacer()
-
-                                    Button {
-                                        UIPasteboard.general.string = url
-                                        Haptic.success()
-                                    } label: {
-                                        Image(systemName: "doc.on.doc")
-                                            .font(.subheadline)
-                                            .foregroundColor(.appForeground)
-                                    }
-                                }
-                                .padding(10)
-                                .background(Color.appCard)
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
-                            }
-                        }
-                        .padding(14)
-                        .background(Color.appCard)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+        VStack(spacing: 0) {
+            // 封面
+            ZStack(alignment: .topTrailing) {
+                AsyncImage(url: URL(string: video.coverURL)) { phase in
+                    switch phase {
+                    case .success(let img):
+                        img.resizable().aspectRatio(contentMode: .fill)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 300)
+                            .clipped()
+                    case .failure:
+                        Rectangle().fill(Color.appCard).frame(height: 300)
+                    case .empty:
+                        Rectangle().fill(Color.appCard).frame(height: 300)
+                            .overlay(ProgressView())
+                    @unknown default:
+                        Rectangle().fill(Color.appCard).frame(height: 300)
                     }
                 }
-                .padding(.horizontal, 16)
+
+                Text(video.tag.rawValue)
+                    .font(.system(size: 10, weight: .bold)).foregroundColor(.white)
+                    .padding(.horizontal, 8).padding(.vertical, 4)
+                    .background(Color(hex: video.tag.color)).clipShape(Capsule())
+                    .padding(10)
             }
+
+            // 信息
+            VStack(alignment: .leading, spacing: 4) {
+                Text(video.code)
+                    .font(.title3).fontWeight(.bold)
+                    .foregroundColor(.appForeground)
+                Text(video.title)
+                    .font(.subheadline)
+                    .foregroundColor(.appSecondary)
+                    .lineLimit(2)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
+
+            // 操作区域
+            VStack(spacing: 0) {
+                Divider()
+
+                if isLoading {
+                    HStack(spacing: 10) {
+                        ProgressView().scaleEffect(0.9)
+                        Text("正在解析...")
+                            .font(.subheadline).foregroundColor(.appSecondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
+
+                } else if let err = errorMsg {
+                    VStack(spacing: 8) {
+                        Text(err).font(.caption).foregroundColor(.appSecondary)
+                            .multilineTextAlignment(.center)
+                        Button("重试") { startExtract() }
+                            .font(.caption).fontWeight(.semibold)
+                            .foregroundColor(Color.appBackground)
+                            .padding(.horizontal, 24).padding(.vertical, 8)
+                            .background(Color.appForeground).clipShape(Capsule())
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+
+                } else if let url = m3u8URL {
+                    VStack(spacing: 10) {
+                        Button {
+                            showPlayer = true
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "play.fill")
+                                Text("播放")
+                            }
+                            .font(.headline).fontWeight(.semibold)
+                            .foregroundColor(Color.appBackground)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 44)
+                            .background(Color.appForeground)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                        }
+                        .padding(.horizontal, 16)
+
+                        HStack {
+                            Text(url)
+                                .font(.system(size: 9, design: .monospaced))
+                                .foregroundColor(.appTertiary)
+                                .lineLimit(1)
+                                .textSelection(.enabled)
+                            Button {
+                                UIPasteboard.general.string = url
+                                Haptic.success()
+                            } label: {
+                                Image(systemName: "doc.on.doc")
+                                    .font(.caption2).foregroundColor(.appSecondary)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                    }
+                    .padding(.vertical, 12)
+                }
+            }
+            .background(Color.appCard)
+
+            Spacer()
         }
         .background(Color.appBackground)
-        .navigationTitle("详情")
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .toolbar {
@@ -164,15 +143,12 @@ struct MissAVDetailView: View {
         guard m3u8URL == nil else { return }
         isLoading = true
         errorMsg = nil
-
         Task { @MainActor in
             do {
                 let m3u8 = try await vm.extractM3U8(for: video)
-                self.m3u8URL = m3u8
-                self.isLoading = false
+                m3u8URL = m3u8; isLoading = false
             } catch {
-                self.errorMsg = error.localizedDescription
-                self.isLoading = false
+                errorMsg = error.localizedDescription; isLoading = false
             }
         }
     }
@@ -182,31 +158,26 @@ struct MissAVDetailView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 2) {
-                    ForEach(vm.debugLog.reversed(), id: \.self) { line in
+                    ForEach(vm.debugLog.suffix(50).reversed(), id: \.self) { line in
                         Text(line)
                             .font(.system(size: 9, design: .monospaced))
                             .foregroundColor(.green)
-                            .lineLimit(nil)
                             .textSelection(.enabled)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 2)
+                            .padding(.horizontal, 8).padding(.vertical, 1)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.vertical, 4)
             }
             .background(Color.black)
-            .navigationTitle("提取日志")
+            .navigationTitle("日志")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("关闭") { showDebug = false }
                 }
                 ToolbarItem(placement: .navigationBarLeading) {
-                    HStack(spacing: 4) {
-                        Button("清空") { vm.debugLog.removeAll() }
-                        Button("复制") { UIPasteboard.general.string = vm.debugLog.joined(separator: "\n"); Haptic.success() }
-                    }
+                    Button("复制") { UIPasteboard.general.string = vm.debugLog.joined(separator: "\n"); Haptic.success() }
                 }
             }
         }

@@ -67,7 +67,6 @@ struct MissAVSearchView: View {
                 }
                 .refreshable {
                     if !vm.videos.isEmpty { await performSearch() }
-                }
             }
         }
         .background(Color.appBackground)

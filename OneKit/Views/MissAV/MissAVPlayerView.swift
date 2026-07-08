@@ -11,7 +11,7 @@ struct MissAVPlayerView: View {
         ZStack {
             Color.black.edgesIgnoringSafeArea(.all)
             // 直接加载 m3u8 URL，Safari 原生 HLS 播放器会接管
-            WebView(url: m3u8URL, referer: referer)
+            M3U8WebView(url: m3u8URL, referer: referer)
                 .edgesIgnoringSafeArea(.all)
             VStack {
                 HStack {
@@ -29,7 +29,7 @@ struct MissAVPlayerView: View {
     }
 }
 
-struct WebView: UIViewRepresentable {
+struct M3U8WebView: UIViewRepresentable {
     let url: String
     let referer: String?
 
