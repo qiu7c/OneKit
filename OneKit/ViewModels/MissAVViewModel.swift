@@ -164,7 +164,7 @@ extension MissAVViewModel {
     }
 
     /// 抓取单页
-    private func scrapePage(query: String, page: Int) async throws -> (results: [MissAVMedia], hasNext: Bool) {
+    private func scrapePage(query: String, page: Int) async throws -> ScrapePageResult {
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<ScrapePageResult, Error>) in
             self.searchContinuation?.resume(throwing: MissAVError.cancelled)
             self.searchContinuation = nil
