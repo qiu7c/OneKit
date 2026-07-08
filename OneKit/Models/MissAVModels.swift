@@ -25,7 +25,7 @@ struct MissAVMedia: Identifiable, Codable, Equatable {
     let detailURL: String  // 详情页 URL
     var tag: MissAVTag     // 分类标签
     var m3u8URL: String?   // 视频流地址（抓取后填充）
-    private var uid = UUID()
+    var uid = UUID()
 
     var id: String { uid.uuidString }
 
