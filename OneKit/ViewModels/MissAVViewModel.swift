@@ -143,33 +143,45 @@ extension MissAVViewModel {
         if webView == nil { setupWebView() }
         attachToWindow()
 
-        var allResults: [MissAVMedia] = []
-        var page = 1
-        var hasMore = true
-
-        while hasMore {
-            let pageResults = try await scrapePage(query: query, page: page)
-            allResults += pageResults.results
-            hasMore = pageResults.hasNext
-            page += 1
-        }
+        // 只加载第1页，立即返回
+        let firstPage = try await scrapePage(query: query, page: 1)
+        let results = firstPage.results
 
         await MainActor.run {
-            self.videos = allResults
-            self.currentPage = page - 1
-            self.hasNextPage = false
-            self.state = .loaded(count: allResults.count)
+            self.videos = results
+            self.state = .loaded(count: results.count)
         }
-        return allResults
+
+        // 后台继续加载剩余页
+        if firstPage.hasNext {
+            Task {
+                var allVideos = results
+                var page = 2
+                var hasMore = true
+                while hasMore {
+                    if let nextPage = try? await scrapePage(query: query, page: page) {
+                        allVideos += nextPage.results
+                        hasMore = nextPage.hasNext
+                        page += 1
+                        await MainActor.run {
+                            self.videos = allVideos
+                            self.state = .loaded(count: allVideos.count)
+                        }
+                    } else { break }
+                }
+            }
+        }
+
+        return results
     }
 
     /// 抓取单页
     private func scrapePage(query: String, page: Int) async throws -> ScrapePageResult {
+        // 先停旧导航，再设新 continuation，避免 -999 误杀
+        webView?.stopLoading()
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<ScrapePageResult, Error>) in
             self.searchContinuation?.resume(throwing: MissAVError.cancelled)
             self.searchContinuation = nil
-            webView?.stopLoading()
-
             self.searchContinuation = continuation
 
             let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
