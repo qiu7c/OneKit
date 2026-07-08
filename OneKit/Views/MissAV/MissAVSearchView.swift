@@ -14,12 +14,10 @@ struct MissAVSearchView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // 搜索栏
             searchBar
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
 
-            // 状态提示
             if case .searching = vm.state {
                 Spacer()
                 VStack(spacing: 16) {
@@ -37,7 +35,6 @@ struct MissAVSearchView: View {
                 emptyView
                 Spacer()
             } else {
-                // 结果统计
                 HStack {
                     Spacer()
                     Text("共 \(vm.videos.count) 部")
@@ -46,7 +43,6 @@ struct MissAVSearchView: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 6)
 
-                // 视频网格
                 ScrollView {
                     LazyVGrid(columns: columns, spacing: 12) {
                         ForEach(vm.videos) { video in
@@ -67,6 +63,7 @@ struct MissAVSearchView: View {
                 }
                 .refreshable {
                     if !vm.videos.isEmpty { await performSearch() }
+                }
             }
         }
         .background(Color.appBackground)
@@ -90,7 +87,6 @@ struct MissAVSearchView: View {
         .onDisappear { vm.detachFromWindow() }
     }
 
-    // MARK: - 搜索栏
     private var searchBar: some View {
         HStack(spacing: 10) {
             HStack(spacing: 8) {
@@ -127,7 +123,6 @@ struct MissAVSearchView: View {
         }
     }
 
-    // MARK: - 空状态
     private var emptyView: some View {
         VStack(spacing: 16) {
             Image(systemName: "film.stack")
@@ -153,7 +148,6 @@ struct MissAVSearchView: View {
         }
     }
 
-    // MARK: - 错误状态
     private func errorView(_ msg: String) -> some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle")
@@ -171,7 +165,6 @@ struct MissAVSearchView: View {
         }
     }
 
-    // MARK: - 搜索
     private func performSearch() async {
         let q = searchQuery.trimmingCharacters(in: .whitespaces)
         guard !q.isEmpty else { return }
@@ -198,7 +191,6 @@ struct VideoCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            // 封面 - 用 Color.clear 占位强制 3:4
             ZStack(alignment: .topTrailing) {
                 Color.clear
                     .overlay(
@@ -228,7 +220,7 @@ struct VideoCardView: View {
                     .padding(6)
             }
             .frame(maxWidth: .infinity)
-            .aspectRatio(2/3, contentMode: .fit)
+            .aspectRatio(16/9, contentMode: .fit)
             .clipShape(RoundedRectangle(cornerRadius: 10))
 
             Text(video.code)

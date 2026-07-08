@@ -11,24 +11,24 @@ struct MissAVDetailView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // 封面
+            // 封面 - 16:9 比例，撑满屏幕宽度
             ZStack(alignment: .topTrailing) {
-                AsyncImage(url: URL(string: video.coverURL)) { phase in
-                    switch phase {
-                    case .success(let img):
-                        img.resizable().aspectRatio(contentMode: .fill)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 300)
-                            .clipped()
-                    case .failure:
-                        Rectangle().fill(Color.appCard).frame(height: 300)
-                    case .empty:
-                        Rectangle().fill(Color.appCard).frame(height: 300)
-                            .overlay(ProgressView())
-                    @unknown default:
-                        Rectangle().fill(Color.appCard).frame(height: 300)
-                    }
-                }
+                Color.clear
+                    .overlay(
+                        AsyncImage(url: URL(string: video.coverURL)) { phase in
+                            switch phase {
+                            case .success(let img):
+                                img.resizable().aspectRatio(contentMode: .fill)
+                            case .failure:
+                                Color.appCard.overlay(Image(systemName: "photo").foregroundColor(.appSecondary))
+                            case .empty:
+                                Color.appCard.overlay(ProgressView())
+                            @unknown default:
+                                Color.appCard
+                            }
+                        }
+                    )
+                    .clipped()
 
                 Text(video.tag.rawValue)
                     .font(.system(size: 10, weight: .bold)).foregroundColor(.white)
@@ -36,6 +36,9 @@ struct MissAVDetailView: View {
                     .background(Color(hex: video.tag.color)).clipShape(Capsule())
                     .padding(10)
             }
+            .frame(maxWidth: .infinity)
+            .aspectRatio(16/9, contentMode: .fill)
+            .clipped()
 
             // 信息
             VStack(alignment: .leading, spacing: 4) {

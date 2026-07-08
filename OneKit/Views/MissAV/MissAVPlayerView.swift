@@ -35,7 +35,7 @@ struct M3U8WebView: UIViewRepresentable {
 
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
-        config.allowsInlineMediaPlayback = true
+        config.allowsInlineMediaPlayback = false  // false = 自动全屏播放
         config.mediaTypesRequiringUserActionForPlayback = []
 
         let webView = WKWebView(frame: .zero, configuration: config)
